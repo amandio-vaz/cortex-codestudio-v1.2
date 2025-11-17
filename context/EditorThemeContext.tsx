@@ -84,6 +84,12 @@ export const EditorThemeProvider: React.FC<{ children: ReactNode }> = ({ childre
         background-color: ${colors.codeBg} !important;
         color: ${colors.codeText} !important;
       }
+
+      /* Syntax Highlighting Styles */
+      .syntax-highlight .syntax-comment { color: ${colors.syntaxComment}; font-style: italic; }
+      .syntax-highlight .syntax-keyword { color: ${colors.syntaxKeyword}; font-weight: 500; }
+      .syntax-highlight .syntax-string { color: ${colors.syntaxString}; }
+      .syntax-highlight .syntax-variable { color: ${colors.syntaxVariable}; }
     `;
   }, [theme]);
 

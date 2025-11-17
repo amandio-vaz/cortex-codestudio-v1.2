@@ -20,6 +20,10 @@ export const EDITOR_THEMES: Record<string, EditorTheme> = {
       scrollbarThumb: 'rgba(107, 114, 128, 0.5)', // gray-500/50
       scrollbarThumbHover: 'rgba(107, 114, 128, 0.7)',
       scrollbarTrack: 'rgba(0, 0, 0, 0.05)',
+      syntaxKeyword: '#1d4ed8', // blue-700
+      syntaxString: '#059669', // green-600
+      syntaxComment: '#6b7280', // gray-500
+      syntaxVariable: '#7e22ce', // purple-700
     },
   },
   defaultDark: {
@@ -41,6 +45,10 @@ export const EDITOR_THEMES: Record<string, EditorTheme> = {
       scrollbarThumb: 'rgba(100, 116, 139, 0.5)', // slate-500/50
       scrollbarThumbHover: 'rgba(100, 116, 139, 0.7)',
       scrollbarTrack: '#1E293B',
+      syntaxKeyword: '#7dd3fc', // sky-300
+      syntaxString: '#fde047', // yellow-300
+      syntaxComment: '#64748b', // slate-500
+      syntaxVariable: '#a78bfa', // violet-400
     },
   },
   monokai: {
@@ -62,6 +70,10 @@ export const EDITOR_THEMES: Record<string, EditorTheme> = {
       scrollbarThumb: 'rgba(117, 113, 94, 0.6)',
       scrollbarThumbHover: 'rgba(117, 113, 94, 0.8)',
       scrollbarTrack: '#3E3D32',
+      syntaxKeyword: '#f92672',
+      syntaxString: '#e6db74',
+      syntaxComment: '#75715e',
+      syntaxVariable: '#66d9ef',
     },
   },
   solarizedDark: {
@@ -83,6 +95,10 @@ export const EDITOR_THEMES: Record<string, EditorTheme> = {
       scrollbarThumb: 'rgba(88, 110, 117, 0.6)',
       scrollbarThumbHover: 'rgba(88, 110, 117, 0.8)',
       scrollbarTrack: '#073642',
+      syntaxKeyword: '#859900',
+      syntaxString: '#2aa198',
+      syntaxComment: '#586e75',
+      syntaxVariable: '#268bd2',
     },
   },
   dracula: {
@@ -104,6 +120,10 @@ export const EDITOR_THEMES: Record<string, EditorTheme> = {
       scrollbarThumb: 'rgba(98, 114, 164, 0.6)',
       scrollbarThumbHover: 'rgba(98, 114, 164, 0.8)',
       scrollbarTrack: '#44475a',
+      syntaxKeyword: '#ff79c6',
+      syntaxString: '#f1fa8c',
+      syntaxComment: '#6272a4',
+      syntaxVariable: '#8be9fd',
     },
   },
 };

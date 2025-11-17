@@ -8,7 +8,7 @@ type UndoRedoState<T> = {
 
 export const useUndoRedo = <T,>(initialPresent: T | (() => T)) => {
   const [state, setState] = useState<UndoRedoState<T>>(() => {
-    const present =
+    const present: T =
       typeof initialPresent === 'function'
         ? (initialPresent as () => T)()
         : initialPresent;
@@ -19,13 +19,13 @@ export const useUndoRedo = <T,>(initialPresent: T | (() => T)) => {
     };
   });
 
-  const canUndo = state.past.length > 0;
-  const canRedo = state.future.length > 0;
+  const canUndo: boolean = state.past.length > 0;
+  const canRedo: boolean = state.future.length > 0;
 
   const undo = useCallback(() => {
     if (!canUndo) return;
-    const previous = state.past[state.past.length - 1];
-    const newPast = state.past.slice(0, state.past.length - 1);
+    const previous: T = state.past[state.past.length - 1];
+    const newPast: T[] = state.past.slice(0, state.past.length - 1);
     setState({
       past: newPast,
       present: previous,
@@ -35,8 +35,8 @@ export const useUndoRedo = <T,>(initialPresent: T | (() => T)) => {
 
   const redo = useCallback(() => {
     if (!canRedo) return;
-    const next = state.future[0];
-    const newFuture = state.future.slice(1);
+    const next: T = state.future[0];
+    const newFuture: T[] = state.future.slice(1);
     setState({
       past: [...state.past, state.present],
       present: next,

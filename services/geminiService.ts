@@ -38,16 +38,58 @@ const buildKnowledgeContextString = (): string => {
 };
 
 
-export const analyzeScript = async (script: string): Promise<string> => {
+export const analyzeContent = async (content: string, fileType: 'bash' | 'yaml' | 'json'): Promise<string> => {
+    let prompt = '';
+    let lang = fileType;
+
+    switch (fileType) {
+        case 'bash':
+            lang = 'bash';
+            prompt = `Analise o seguinte script Bash. Forneça feedback sobre possíveis bugs, inconsistências de estilo e sugira melhorias. Formate sua resposta como Markdown, incluindo trechos de código quando apropriado.\n\n\`\`\`bash\n${content}\n\`\`\``;
+            break;
+        case 'yaml':
+            lang = 'yaml';
+            prompt = `Aja como um engenheiro sênior de contêineres e orquestração especializado em Docker Compose. Analise o seguinte arquivo \`docker-compose.yml\`.
+
+- **Validação:** Verifique a sintaxe, a estrutura e o uso correto dos campos (services, volumes, networks, depends_on, healthcheck, environment, deploy, etc.).
+- **Anti-Padrões:** Aponte anti-padrões comuns, como a falta de healthchecks, ausência de volumes para dados persistentes, uso de modo privilegiado desnecessário, ou uso de \`latest\` tags em produção.
+- **Melhores Práticas:** Recomende melhores práticas, como o uso de limites de recursos (memória/cpu), políticas de reinicialização adequadas, redes dedicadas e tratamento de segredos via variáveis de ambiente ou arquivos \`.env\`.
+- **Segurança:** Identifique possíveis falhas de segurança, como segredos hardcoded ou exposição de portas desnecessárias.
+
+Formate sua resposta como Markdown, fornecendo explicações claras e trechos de código corrigidos quando apropriado.
+
+\`\`\`yaml
+${content}
+\`\`\`
+`;
+            break;
+        case 'json':
+            lang = 'json';
+            prompt = `Aja como um engenheiro sênior de configuração e API. Analise o seguinte arquivo de configuração JSON.
+
+- **Validação:** Verifique a sintaxe JSON (vírgulas, aspas, etc.) e a estrutura geral.
+- **Inconsistências:** Destaque tipos de dados inconsistentes, campos não utilizados ou estruturas duplicadas.
+- **Padrões Perigosos:** Identifique configurações com padrões perigosos, como timeouts muito longos, limites ausentes ou flags de segurança desabilitadas.
+- **Sugestões:** Proponha padrões mais seguros e claros, pensando em portabilidade entre ambientes (dev/prod) e separação de segredos.
+
+Formate sua resposta como Markdown, com explicações claras para cada ponto levantado.
+
+\`\`\`json
+${content}
+\`\`\`
+`;
+            break;
+    }
+
     try {
         const ai = getAi();
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Analise o seguinte script Bash. Forneça feedback sobre possíveis bugs, inconsistências de estilo e sugira melhorias. Formate sua resposta como Markdown, incluindo trechos de código quando apropriado.\n\n\`\`\`bash\n${script}\n\`\`\``
+            contents: prompt
         });
         return response.text;
     } catch (error) {
-        console.error("Error analyzing script:", error);
+        console.error(`Error analyzing ${fileType} content:`, error);
         throw error;
     }
 };
@@ -271,6 +313,174 @@ ${script}
             issues: [{
                 line: null,
                 message: `The AI validation service failed to analyze the script. Details: ${errorMessage}`,
+                severity: 'error'
+            }]
+        };
+    }
+};
+
+export const validateYaml = async (yamlContent: string): Promise<ValidationResult> => {
+    try {
+        const ai = getAi();
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `You are an expert Docker Compose configuration validator. Analyze the following YAML content with extreme rigor.
+
+- **YAML Syntax**: Check for basic YAML syntax errors like indentation, colons, and quoting.
+- **Docker Compose Schema**: Validate against the Docker Compose specification.
+  - Check for unrecognized or deprecated top-level keys (like \`version\`) or service-level keys.
+  - Verify correct data types (e.g., ports should be a list, 'restart' should be a valid string).
+- **Best Practices & Anti-Patterns**:
+  - **Healthchecks**: Identify services (especially databases, APIs) missing a \`healthcheck\` definition. (severity: 'warning').
+  - **Image Tags**: Flag services using the \`:latest\` image tag, which is unstable for production. (severity: 'warning').
+  - **Data Persistence**: Warn about stateful services (like databases) that do not use a named \`volume\` for data persistence. Bind mounts are acceptable but riskier. (severity: 'error').
+  - **Restart Policies**: Detect services missing an appropriate \`restart\` policy (e.g., suggest \`unless-stopped\` or \`on-failure\` for long-running services). (severity: 'warning').
+  - **Resource Limits**: Check for services without resource limits (\`deploy: resources: limits\`), which can cause resource contention. (severity: 'performance').
+  - **Logging**: Suggest configuring a logging driver (e.g., \`json-file\` with size/file limits) for production services to prevent disk space exhaustion. (severity: 'performance').
+  - **Unused Resources**: Identify defined but unused top-level \`volumes\`, \`networks\`, or \`secrets\`. (severity: 'warning').
+  - **Network Best Practices**: Check if related services are on a custom bridge network instead of the default. Warn about exposing all ports of a service when only a few are needed.
+- **Security**:
+  - **Hardcoded Secrets**: Find hardcoded secrets (passwords, API keys) in the \`environment\` section. Recommend using environment files (\`.env\`), Docker secrets, or variable interpolation \`\${VAR}\`. (severity: 'error').
+  - **Privileged Mode**: Flag any service running with \`privileged: true\`, which is a major security risk. (severity: 'error').
+  - **Exposed Ports**: Warn about exposing sensitive ports (like a database port) to the host machine (0.0.0.0). (severity: 'warning').
+  - **Build Context**: Check if a service's \`build: context\` points to an unsafe parent directory (\`..\`) that could include sensitive files. (severity: 'warning').
+  - **Root User**: Warn if a service is running as the root user without an explicit \`user\` directive. (severity: 'warning').
+
+Respond ONLY with a JSON object that adheres to the provided schema. The \`message\` for each issue must be detailed and clearly explain the problem and a potential solution. Ensure you identify the specific line number for each issue whenever possible.
+
+**IMPORTANT**: Set \`isValid\` to \`true\` if there are no 'error' severity issues. Set \`isValid\` to \`false\` only if you find one or more 'error' severity issues. If there are no issues at all, return \`isValid: true\` and an empty \`issues\` array.
+
+**YAML Content:**
+\`\`\`yaml
+${yamlContent}
+\`\`\`
+`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        isValid: { type: Type.BOOLEAN },
+                        issues: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    line: { type: Type.INTEGER, description: "The line number of the issue, or null if it's a general file issue.", nullable: true },
+                                    message: { type: Type.STRING, description: "A clear, detailed description of the issue and potential solutions." },
+                                    severity: { type: Type.STRING, enum: ['error', 'warning', 'performance'], description: "The severity of the issue." }
+                                },
+                                required: ['message', 'severity']
+                            }
+                        }
+                    },
+                    required: ['isValid', 'issues']
+                }
+            }
+        });
+        
+        const jsonText = response.text.trim();
+        const result = JSON.parse(jsonText) as ValidationResult;
+        return result;
+
+    } catch (error) {
+        console.error("Error validating YAML:", error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        return {
+            isValid: false,
+            issues: [{
+                line: null,
+                message: `The AI validation service failed to analyze the YAML. Details: ${errorMessage}`,
+                severity: 'error'
+            }]
+        };
+    }
+};
+
+export const validateJson = async (jsonContent: string): Promise<ValidationResult> => {
+    // First, try to parse locally for immediate syntax feedback
+    try {
+        JSON.parse(jsonContent);
+    } catch (e) {
+        const error = e as Error;
+        // This won't give a great line number, but it's an immediate, cheap check.
+        return {
+            isValid: false,
+            issues: [{
+                line: null,
+                message: `Invalid JSON syntax: ${error.message}`,
+                severity: 'error'
+            }]
+        };
+    }
+
+    try {
+        const ai = getAi();
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `You are a world-class senior engineering assistant specialized in JSON. Analyze the following JSON content, focusing on its use in API payloads, workflows, and configurations.
+
+- **JSON Syntax & Structural Integrity**:
+  - Detect basic syntax errors that the local parser might have missed (e.g., subtle encoding issues).
+  - Check for inconsistent data types for the same key across different objects in an array.
+  - Flag inconsistent object shapes within an array (e.g., some objects have a 'name' key while others don't).
+  - Identify potentially ambiguous values, such as using \`null\` vs. an empty string \`""\` or empty array \`[]\` inconsistently.
+
+- **Portability & Maintainability**:
+  - **Hardcoded Values**: Find environment-specific values like URLs (e.g., "http://localhost:3000"), file paths (e.g., "/var/www/data"), or hostnames. Suggest using placeholders (e.g., \`\${API_URL}\`) or a more structured configuration approach. (severity: 'warning').
+  - **API Payload Best Practices**: For content resembling API payloads, check for clear and consistent key naming (e.g., camelCase vs. snake_case). Suggest standard fields where appropriate (e.g., \`createdAt\`, \`updatedAt\`).
+  - **Workflow Logic**: For content resembling workflow definitions, look for logical inconsistencies, such as a step referencing an output from a non-existent previous step or circular dependencies.
+
+- **Security Vulnerabilities**:
+  - **Hardcoded Secrets**: Vigorously search for keys like "password", "token", "apiKey", "secret", "aws_access_key_id", etc., that have non-placeholder string values. This is a critical issue. (severity: 'error').
+  - **Insecure Configurations**: Identify configurations that disable security features, such as a "tls_verify", "ssl_verify", or "validate_certs" key set to \`false\`, or overly permissive CORS settings (e.g., \`"origin": "*"\`). (severity: 'warning').
+  - **PII Exposure**: Flag keys that might contain Personally Identifiable Information (PII), such as "ssn", "social_security_number", "credit_card", "cvv", and suggest caution. (severity: 'warning').
+
+Respond ONLY with a JSON object that adheres to the provided schema. The \`message\` for each issue must be detailed and clearly explain the problem and a potential solution.
+
+**IMPORTANT**: Set \`isValid\` to \`true\` if there are no 'error' severity issues, even if there are 'warning' or 'performance' issues. Set \`isValid\` to \`false\` only if you find one or more 'error' severity issues. If there are no issues at all, return \`isValid: true\` and an empty \`issues\` array.
+
+**JSON Content:**
+\`\`\`json
+${jsonContent}
+\`\`\`
+`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        isValid: { type: Type.BOOLEAN },
+                        issues: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    line: { type: Type.INTEGER, description: "The line number of the issue, or null if it's a general file issue.", nullable: true },
+                                    message: { type: Type.STRING, description: "A clear, detailed description of the issue and potential solutions." },
+                                    severity: { type: Type.STRING, enum: ['error', 'warning', 'performance'], description: "The severity of the issue." }
+                                },
+                                required: ['message', 'severity']
+                            }
+                        }
+                    },
+                    required: ['isValid', 'issues']
+                }
+            }
+        });
+        
+        const jsonText = response.text.trim();
+        const result = JSON.parse(jsonText) as ValidationResult;
+        return result;
+
+    } catch (error) {
+        console.error("Error validating JSON:", error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        return {
+            isValid: false,
+            issues: [{
+                line: null,
+                message: `The AI validation service failed to analyze the JSON. Details: ${errorMessage}`,
                 severity: 'error'
             }]
         };

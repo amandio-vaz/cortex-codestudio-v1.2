@@ -404,6 +404,14 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para o Caddy.' },
             steps: [
               { command: 'sudo mkdir -p /opt/docker/traefik-stack/letsencrypt && cd /opt/docker/traefik-stack', description: 'Cria a estrutura de diretórios.' },
               { command: `touch ./letsencrypt/acme.json && chmod 600 ./letsencrypt/acme.json`, description: 'Cria e protege o arquivo de armazenamento dos certificados.'},
+              { command: `cat <<'EOF' > .env
+# --- Configurações do Traefik ---
+# Domínio principal para o dashboard do Traefik.
+TRAEFIK_DOMAIN=traefik.seu-dominio.com
+# Email para registro do certificado Let's Encrypt.
+ACME_EMAIL=seu-email@dominio.com
+EOF`, description: 'Cria o arquivo .env para as variáveis de ambiente.'},
+              { command: 'echo "IMPORTANTE: Edite o arquivo .env com seu domínio e email!"', description: 'Aviso de configuração.', isCode: false },
               { command: `cat <<'EOF' > docker-compose.yml
 services:
   traefik:
@@ -417,9 +425,8 @@ services:
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.myresolver.acme.email=seu-email@dominio.com" # MUDE AQUI
+      - "--certificatesresolvers.myresolver.acme.email=\${ACME_EMAIL:?Defina o email no arquivo .env}"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-      # Redirecionamento Global HTTP para HTTPS
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
     ports:
@@ -430,18 +437,13 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./letsencrypt:/letsencrypt"
     restart: unless-stopped
-    # Exemplo de como expor um serviço (o próprio dashboard do Traefik)
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.traefik-dashboard.rule=Host(\`traefik.seu-dominio.com\`) && (PathPrefix(\`/api\`) || PathPrefix(\`/dashboard\`))" # MUDE AQUI
+      - "traefik.http.routers.traefik-dashboard.rule=Host(\`\${TRAEFIK_DOMAIN:?Defina o domínio no arquivo .env}\`) && (PathPrefix(\`/api\`) || PathPrefix(\`/dashboard\`))"
       - "traefik.http.routers.traefik-dashboard.service=api@internal"
       - "traefik.http.routers.traefik-dashboard.tls.certresolver=myresolver"
-      # Adicione um middleware de autenticação para o dashboard em produção!
-      # - "traefik.http.routers.traefik-dashboard.middlewares=auth"
-      # - "traefik.http.middlewares.auth.basicauth.users=user:$$apr1$$...$$..."
 EOF`, description: 'Cria o arquivo docker-compose.yml para o Traefik.' },
               { command: 'docker compose up -d', description: 'Inicia o contêiner do Traefik.' },
-              { command: 'echo "IMPORTANTE: Edite o docker-compose.yml e substitua seu-email@dominio.com e traefik.seu-dominio.com!"', description: 'Aviso de configuração.', isCode: false },
             ],
           },
           {
@@ -489,15 +491,24 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para o Nginx Proxy Manager
             useCase: 'Banco de dados relacional de propósito geral para aplicações web, APIs e análise de dados. Essencial para projetos que requerem transações ACID, confiabilidade e um ecossistema SQL avançado.',
             steps: [
               { command: 'sudo mkdir -p /opt/docker/postgresql && cd /opt/docker/postgresql', description: 'Cria e acessa o diretório do projeto.' },
+              { command: `cat <<'EOF' > .env
+# --- Configurações do PostgreSQL ---
+# Defina o nome do banco de dados, usuário e senha.
+# IMPORTANTE: Use uma senha forte em produção.
+POSTGRES_DB=minha_db
+POSTGRES_USER=meu_usuario
+POSTGRES_PASSWORD=SuaSenhaSuperSegura
+EOF`, description: 'Cria o arquivo .env para as variáveis de ambiente.'},
+              { command: 'echo "IMPORTANTE: Edite o arquivo .env e defina uma senha segura para o banco de dados!"', description: 'Aviso de segurança.', isCode: false },
               { command: `cat <<'EOF' > docker-compose.yml
 services:
   postgres:
     image: postgres:latest
     container_name: postgres
     environment:
-      POSTGRES_DB: minha_db
-      POSTGRES_USER: meu_usuario
-      POSTGRES_PASSWORD: SuaSenhaSuperSegura
+      POSTGRES_DB: \${POSTGRES_DB:-minha_db}
+      POSTGRES_USER: \${POSTGRES_USER:-meu_usuario}
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD:?A senha do DB não foi definida no arquivo .env}
     ports:
       - "5432:5432"
     volumes:
@@ -507,9 +518,8 @@ services:
 networks:
   default:
     name: postgres_net
-EOF`, description: 'Cria o arquivo docker-compose.yml para o PostgreSQL.' },
+EOF`, description: 'Cria o arquivo docker-compose.yml que usa as variáveis do .env.' },
               { command: 'docker compose up -d', description: 'Inicia o contêiner do PostgreSQL.' },
-              { command: 'echo "IMPORTANTE: Altere a senha padrão no arquivo docker-compose.yml!"', description: 'Aviso de segurança.', isCode: false },
               { command: 'echo "PostgreSQL rodando na porta 5432."', description: 'Confirmação.', isCode: false },
             ],
           },
@@ -519,16 +529,25 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para o PostgreSQL.' },
             useCase: 'Backend de banco de dados para uma vasta gama de aplicações, especialmente sistemas de gerenciamento de conteúdo como WordPress, Joomla e aplicações web tradicionais.',
             steps: [
               { command: 'sudo mkdir -p /opt/docker/mysql && cd /opt/docker/mysql', description: 'Cria e acessa o diretório do projeto.' },
+              { command: `cat <<'EOF' > .env
+# --- Configurações do MySQL ---
+# IMPORTANTE: Use senhas fortes em produção.
+MYSQL_ROOT_PASSWORD=SuaSenhaRootSuperSegura
+MYSQL_DATABASE=minha_db
+MYSQL_USER=meu_usuario
+MYSQL_PASSWORD=SuaSenhaSuperSegura
+EOF`, description: 'Cria o arquivo .env para as variáveis de ambiente.'},
+              { command: 'echo "IMPORTANTE: Edite o arquivo .env e defina senhas seguras!"', description: 'Aviso de segurança.', isCode: false },
               { command: `cat <<'EOF' > docker-compose.yml
 services:
   mysql:
     image: mysql:latest
     container_name: mysql
     environment:
-      MYSQL_ROOT_PASSWORD: SuaSenhaRootSuperSegura
-      MYSQL_DATABASE: minha_db
-      MYSQL_USER: meu_usuario
-      MYSQL_PASSWORD: SuaSenhaSuperSegura
+      MYSQL_ROOT_PASSWORD: \${MYSQL_ROOT_PASSWORD:?A senha root do MySQL não foi definida no .env}
+      MYSQL_DATABASE: \${MYSQL_DATABASE:-minha_db}
+      MYSQL_USER: \${MYSQL_USER:-meu_usuario}
+      MYSQL_PASSWORD: \${MYSQL_PASSWORD:?A senha do usuário MySQL não foi definida no .env}
     ports:
       - "3306:3306"
     volumes:
@@ -540,7 +559,6 @@ networks:
     name: mysql_net
 EOF`, description: 'Cria o arquivo docker-compose.yml para o MySQL.' },
               { command: 'docker compose up -d', description: 'Inicia o contêiner do MySQL.' },
-              { command: 'echo "IMPORTANTE: Altere as senhas padrão no arquivo docker-compose.yml!"', description: 'Aviso de segurança.', isCode: false },
               { command: 'echo "MySQL rodando na porta 3306."', description: 'Confirmação.', isCode: false },
             ],
           },
@@ -550,12 +568,18 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para o MySQL.' },
             useCase: 'Caching de alta velocidade para aliviar a carga em bancos de dados, gerenciamento de sessões de usuário, filas de tarefas (background jobs) e comunicação em tempo real (Pub/Sub).',
             steps: [
               { command: 'sudo mkdir -p /opt/docker/redis && cd /opt/docker/redis', description: 'Cria e acessa o diretório do projeto.' },
+              { command: `cat <<'EOF' > .env
+# --- Configuração do Redis ---
+# Defina uma senha forte para o Redis em produção.
+REDIS_PASSWORD=SuaSenhaSuperSegura
+EOF`, description: 'Cria o arquivo .env para a senha do Redis.'},
+              { command: 'echo "IMPORTANTE: Edite o arquivo .env e defina uma senha segura para o Redis!"', description: 'Aviso de segurança.', isCode: false },
               { command: `cat <<'EOF' > docker-compose.yml
 services:
   redis:
     image: redis:latest
     container_name: redis
-    command: redis-server --requirepass SuaSenhaSuperSegura
+    command: redis-server --requirepass \${REDIS_PASSWORD:?A senha do Redis não foi definida no .env}
     ports:
       - "6379:6379"
     volumes:
@@ -567,7 +591,6 @@ networks:
     name: redis_net
 EOF`, description: 'Cria o arquivo docker-compose.yml para o Redis.' },
               { command: 'docker compose up -d', description: 'Inicia o contêiner do Redis.' },
-              { command: 'echo "IMPORTANTE: Altere a senha padrão no arquivo docker-compose.yml!"', description: 'Aviso de segurança.', isCode: false },
               { command: 'echo "Redis rodando na porta 6379."', description: 'Confirmação.', isCode: false },
             ],
           },
@@ -577,6 +600,11 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para o Redis.' },
             useCase: 'Análise de dados em tempo real, dashboards, business intelligence e armazenamento de grandes volumes de dados de log ou eventos. Extremamente rápido para consultas analíticas complexas.',
             steps: [
               { command: 'sudo mkdir -p /opt/docker/clickhouse && cd /opt/docker/clickhouse', description: 'Cria e acessa o diretório do projeto.' },
+              { command: `cat <<'EOF' > .env
+# --- Configuração do ClickHouse ---
+CLICKHOUSE_PASSWORD=SuaSenhaSuperSegura
+EOF`, description: 'Cria o arquivo .env para a senha do ClickHouse.'},
+              { command: 'echo "IMPORTANTE: Edite o arquivo .env e defina uma senha segura!"', description: 'Aviso de segurança.', isCode: false },
               { command: `cat <<'EOF' > docker-compose.yml
 services:
   clickhouse-server:
@@ -589,7 +617,8 @@ services:
       - ./clickhouse_data:/var/lib/clickhouse
       - ./clickhouse_logs:/var/log/clickhouse-server
     environment:
-      - CLICKHOUSE_PASSWORD=SuaSenhaSuperSegura
+      - CLICKHOUSE_DEFAULT_USER=default
+      - CLICKHOUSE_DEFAULT_PASSWORD=\${CLICKHOUSE_PASSWORD:?A senha do ClickHouse não foi definida no .env}
     ulimits:
       nproc: 65535
       nofile:
@@ -598,7 +627,6 @@ services:
     restart: unless-stopped
 EOF`, description: 'Cria o arquivo docker-compose.yml para o ClickHouse.' },
               { command: 'docker compose up -d', description: 'Inicia o contêiner do ClickHouse.' },
-              { command: 'echo "IMPORTANTE: Altere a senha padrão no arquivo docker-compose.yml!"', description: 'Aviso de segurança.', isCode: false },
               { command: 'echo "ClickHouse rodando. Porta HTTP: 8123, Porta TCP: 9000."', description: 'Confirmação.', isCode: false },
             ],
           },
@@ -608,6 +636,12 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para o ClickHouse.' },
             useCase: 'Armazenamento de dados flexíveis e semi-estruturados para aplicações web modernas, catálogos de produtos, perfis de usuário, e qualquer cenário onde um esquema rígido não é ideal.',
             steps: [
               { command: 'sudo mkdir -p /opt/docker/mongodb && cd /opt/docker/mongodb', description: 'Cria e acessa o diretório do projeto.' },
+              { command: `cat <<'EOF' > .env
+# --- Configurações do MongoDB ---
+MONGO_INITDB_ROOT_USERNAME=root
+MONGO_INITDB_ROOT_PASSWORD=SuaSenhaSuperSegura
+EOF`, description: 'Cria o arquivo .env para as credenciais do MongoDB.'},
+              { command: 'echo "IMPORTANTE: Edite o arquivo .env e defina uma senha segura!"', description: 'Aviso de segurança.', isCode: false },
               { command: `cat <<'EOF' > docker-compose.yml
 services:
   mongodb:
@@ -618,8 +652,8 @@ services:
     volumes:
       - ./mongo_data:/data/db
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=SuaSenhaSuperSegura
+      - MONGO_INITDB_ROOT_USERNAME=\${MONGO_INITDB_ROOT_USERNAME:-root}
+      - MONGO_INITDB_ROOT_PASSWORD=\${MONGO_INITDB_ROOT_PASSWORD:?A senha root do MongoDB não foi definida no .env}
     restart: unless-stopped
 
 networks:
@@ -627,7 +661,6 @@ networks:
     name: mongo_net
 EOF`, description: 'Cria o arquivo docker-compose.yml para o MongoDB.' },
               { command: 'docker compose up -d', description: 'Inicia o contêiner do MongoDB.' },
-              { command: 'echo "IMPORTANTE: Altere a senha padrão no arquivo docker-compose.yml!"', description: 'Aviso de segurança.', isCode: false },
               { command: 'echo "MongoDB rodando na porta 27017."', description: 'Confirmação.', isCode: false },
             ],
           },
@@ -746,6 +779,11 @@ EOF`, description: 'Cria o docker-compose.yml para a stack de monitoramento.' },
             useCase: 'Monitoramento de infraestrutura de TI em larga escala. Ideal para coletar, armazenar e analisar métricas de servidores, redes e aplicações com alta performance, aproveitando o TimescaleDB para otimizar o armazenamento de dados históricos.',
             steps: [
               { command: 'sudo mkdir -p /opt/docker/zabbix-stack && cd /opt/docker/zabbix-stack', description: 'Cria e acessa o diretório do projeto Zabbix.' },
+              { command: `cat <<'EOF' > .env
+# --- Configurações da Stack Zabbix ---
+POSTGRES_PASSWORD=SuaSenhaSuperSeguraAqui
+EOF`, description: 'Cria o arquivo .env para a senha do banco de dados.'},
+              { command: 'echo "IMPORTANTE: Edite o arquivo .env e defina uma senha segura!"', description: 'Aviso de segurança.', isCode: false },
               { command: `cat <<'EOF' > docker-compose.yml
 services:
   postgres-server:
@@ -756,7 +794,7 @@ services:
     environment:
       - POSTGRES_DB=zabbix
       - POSTGRES_USER=zabbix
-      - POSTGRES_PASSWORD=SuaSenhaSuperSeguraAqui
+      - POSTGRES_PASSWORD=\${POSTGRES_PASSWORD:?A senha do DB não foi definida no .env}
       - TIMESCALEDB_TELEMETRY=off
     networks:
       - zabbix-net
@@ -773,7 +811,7 @@ services:
       - DB_SERVER_HOST=postgres-server
       - POSTGRES_DB=zabbix
       - POSTGRES_USER=zabbix
-      - POSTGRES_PASSWORD=SuaSenhaSuperSeguraAqui
+      - POSTGRES_PASSWORD=\${POSTGRES_PASSWORD:?A senha do DB não foi definida no .env}
     depends_on:
       - postgres-server
     networks:
@@ -791,7 +829,7 @@ services:
       - DB_SERVER_HOST=postgres-server
       - POSTGRES_DB=zabbix
       - POSTGRES_USER=zabbix
-      - POSTGRES_PASSWORD=SuaSenhaSuperSeguraAqui
+      - POSTGRES_PASSWORD=\${POSTGRES_PASSWORD:?A senha do DB não foi definida no .env}
     depends_on:
       - zabbix-server
     networks:
@@ -821,7 +859,6 @@ networks:
     driver: bridge
 EOF`, description: 'Cria o arquivo docker-compose.yml para a stack Zabbix.' },
               { command: 'docker compose up -d', description: 'Inicia os contêineres da stack Zabbix.' },
-              { command: 'echo "IMPORTANTE: Altere a senha padrão do PostgreSQL no arquivo docker-compose.yml!"', description: 'Aviso de segurança.', isCode: false },
               { command: 'echo "Aguarde alguns minutos para a inicialização completa dos serviços."', description: 'Instrução.', isCode: false },
               { command: 'echo "Acesse a interface em: http://SEU_IP_DO_SERVIDOR:8080 ou https://SEU_IP_DO_SERVIDOR:8443"', description: 'Instrução de acesso.', isCode: false },
               { command: 'echo "Login padrão: Admin / zabbix"', description: 'Credenciais padrão.', isCode: false },
@@ -1100,6 +1137,12 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para o Alloy.' },
             useCase: 'Armazenar e consultar grandes volumes de dados de tracing de aplicações instrumentadas com OpenTelemetry. O Minio fornece uma solução de armazenamento local e econômica para os traces.',
             steps: [
               { command: 'sudo mkdir -p /opt/docker/tempo-stack/config && cd /opt/docker/tempo-stack', description: 'Cria a estrutura de diretórios para o Tempo.' },
+              { command: `cat <<'EOF' > .env
+# --- Configurações do MinIO ---
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=SuaSenhaSuperSegura
+EOF`, description: 'Cria o arquivo .env para as credenciais do MinIO.'},
+              { command: 'echo "IMPORTANTE: Edite o arquivo .env e defina uma senha segura para o MinIO!"', description: 'Aviso de segurança.', isCode: false },
               { command: `cat <<'EOF' > ./config/tempo.yml
 server:
   http_listen_port: 3200
@@ -1117,8 +1160,8 @@ storage:
     s3:
       bucket: tempo-traces
       endpoint: minio:9000
-      access_key: minioadmin
-      secret_key: minioadmin
+      access_key: \${MINIO_ROOT_USER}
+      secret_key: \${MINIO_ROOT_PASSWORD}
       insecure: true
 
 compactor:
@@ -1135,6 +1178,7 @@ services:
     image: grafana/tempo:latest
     container_name: tempo
     command: ["-config.file=/etc/tempo/tempo.yml"]
+    env_file: .env
     ports:
       - "3200:3200"   # tempo
       - "4317:4317"   # otlp grpc
@@ -1150,12 +1194,10 @@ services:
     image: minio/minio:latest
     container_name: minio
     command: server /data --console-address ":9001"
+    env_file: .env
     ports:
       - "9000:9000"
       - "9001:9001"
-    environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
     volumes:
       - ./minio_data:/data
     networks:
@@ -1259,6 +1301,11 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para o Grafana.' },
             useCase: 'Alternativa auto-hospedada a serviços como Zapier ou Make. Use para automatizar tarefas repetitivas, sincronizar dados entre APIs, criar chatbots e integrar centenas de serviços sem escrever código.',
             steps: [
               { command: 'sudo mkdir -p /opt/docker/n8n && cd /opt/docker/n8n', description: 'Cria e acessa o diretório do projeto.' },
+              { command: `cat <<'EOF' > .env
+# --- Configurações do n8n ---
+# Define o fuso horário para a instância do n8n.
+TZ=America/Sao_Paulo
+EOF`, description: 'Cria o arquivo .env para as variáveis de ambiente.'},
               { command: `cat <<'EOF' > docker-compose.yml
 services:
   n8n:
@@ -1268,8 +1315,8 @@ services:
       - "5678:5678"
     volumes:
       - ./n8n_data:/home/node/.n8n
-    environment:
-      - TZ=America/Sao_Paulo
+    env_file:
+      - .env
     restart: unless-stopped
 EOF`, description: 'Cria o arquivo docker-compose.yml para o n8n.' },
               { command: 'docker compose up -d', description: 'Inicia o contêiner do n8n.' },
@@ -1282,16 +1329,26 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para o n8n.' },
             useCase: 'Gerenciar inventário de hardware e software, licenças, contratos, central de serviços (help desk), base de conhecimento e relatórios para o departamento de TI.',
             steps: [
               { command: 'sudo mkdir -p /opt/docker/glpi-stack/{mariadb_data,glpi_data} && cd /opt/docker/glpi-stack', description: 'Cria a estrutura de diretórios.' },
+              { command: `cat <<'EOF' > .env
+# --- Configurações da Stack GLPI ---
+# IMPORTANTE: Use senhas fortes em produção.
+MYSQL_ROOT_PASSWORD=SuaSenhaRootSuperSegura
+GLPI_DB_NAME=glpidb
+GLPI_DB_USER=glpiuser
+GLPI_DB_PASSWORD=SuaSenhaGlpiSuperSegura
+TZ=America/Sao_Paulo
+EOF`, description: 'Cria o arquivo .env para as variáveis de ambiente.'},
+              { command: 'echo "IMPORTANTE: Edite o arquivo .env e defina senhas seguras!"', description: 'Aviso de segurança.', isCode: false },
               { command: `cat <<'EOF' > docker-compose.yml
 services:
   mariadb:
     image: mariadb:latest
     container_name: glpi_db
     environment:
-      MYSQL_ROOT_PASSWORD: SuaSenhaRootSuperSegura
-      MYSQL_DATABASE: glpidb
-      MYSQL_USER: glpiuser
-      MYSQL_PASSWORD: SuaSenhaGlpiSuperSegura
+      MYSQL_ROOT_PASSWORD: \${MYSQL_ROOT_PASSWORD:?Senha root não definida}
+      MYSQL_DATABASE: \${GLPI_DB_NAME:-glpidb}
+      MYSQL_USER: \${GLPI_DB_USER:-glpiuser}
+      MYSQL_PASSWORD: \${GLPI_DB_PASSWORD:?Senha do GLPI não definida}
     volumes:
       - ./mariadb_data:/var/lib/mysql
     networks:
@@ -1305,10 +1362,10 @@ services:
       - "8080:80"
     environment:
       - DB_HOST=mariadb
-      - DB_DATABASE=glpidb
-      - DB_USER=glpiuser
-      - DB_PASSWORD=SuaSenhaGlpiSuperSegura
-      - TZ=America/Sao_Paulo
+      - DB_DATABASE=\${GLPI_DB_NAME:-glpidb}
+      - DB_USER=\${GLPI_DB_USER:-glpiuser}
+      - DB_PASSWORD=\${GLPI_DB_PASSWORD:?Senha do GLPI não definida}
+      - TZ=\${TZ}
     volumes:
       - ./glpi_data:/var/www/html/glpi/files
     depends_on:
@@ -1322,7 +1379,6 @@ networks:
     driver: bridge
 EOF`, description: 'Cria o arquivo docker-compose.yml para a stack GLPI.' },
               { command: 'docker compose up -d', description: 'Inicia os contêineres.' },
-              { command: 'echo "IMPORTANTE: Altere as senhas padrão no arquivo docker-compose.yml!"', description: 'Aviso de segurança.', isCode: false },
               { command: 'echo "Aguarde a inicialização. Acesse o GLPI em http://SEU_IP_DO_SERVIDOR:8080"', description: 'Instrução de acesso.', isCode: false },
             ],
           },
@@ -1346,6 +1402,9 @@ EOF`, description: 'Cria o arquivo principal da aplicação FastAPI.' },
               { command: `cat <<'EOF' > Dockerfile
 FROM python:3.11-slim
 
+# Instala o curl para o healthcheck
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /code
 
 COPY ./requirements.txt /code/requirements.txt
@@ -1363,6 +1422,11 @@ services:
     ports:
       - "8000:80"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 EOF`, description: 'Cria o arquivo docker-compose.yml para construir e rodar a imagem.' },
               { command: 'docker compose up -d --build', description: 'Constrói a imagem e inicia o contêiner.' },
               { command: 'echo "Aplicação FastAPI rodando. Acesse em http://SEU_IP_DO_SERVIDOR:8000"', description: 'Instrução de acesso.', isCode: false },
@@ -1379,6 +1443,13 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para construir e rodar a i
             useCase: 'Armazenamento de backups, artefatos de build, mídia estática para aplicações web, data lakes e qualquer cenário que exija um armazenamento de objetos escalável e auto-hospedado. É a base para muitas ferramentas de nuvem nativa.',
             steps: [
               { command: 'sudo mkdir -p /opt/docker/minio && cd /opt/docker/minio', description: 'Cria e acessa o diretório do projeto MinIO.' },
+              { command: `cat <<'EOF' > .env
+# --- Configurações do MinIO ---
+# IMPORTANTE: Use credenciais fortes em produção.
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=SuaSenhaSuperSegura
+EOF`, description: 'Cria o arquivo .env para as credenciais do MinIO.'},
+              { command: 'echo "IMPORTANTE: Edite o arquivo .env e defina uma senha segura!"', description: 'Aviso de segurança.', isCode: false },
               { command: `cat <<'EOF' > docker-compose.yml
 services:
   minio:
@@ -1389,8 +1460,8 @@ services:
       - "9000:9000" # API Port
       - "9001:9001" # Console Port
     environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=SuaSenhaSuperSegura
+      - MINIO_ROOT_USER=\${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=\${MINIO_ROOT_PASSWORD:?A senha do MinIO não foi definida no .env}
     volumes:
       - ./minio_data:/data
     networks:
@@ -1407,7 +1478,6 @@ networks:
     driver: bridge
 EOF`, description: 'Cria o arquivo docker-compose.yml para o MinIO.' },
               { command: 'docker compose up -d', description: 'Inicia o contêiner do MinIO em segundo plano.' },
-              { command: 'echo "IMPORTANTE: Altere a senha padrão no arquivo docker-compose.yml!"', description: 'Aviso de segurança.', isCode: false },
               { command: 'echo "Acesse a console do MinIO em: http://SEU_IP_DO_SERVIDOR:9001"', description: 'Instrução de acesso.', isCode: false },
               { command: 'echo "Use as credenciais definidas para fazer login e criar seus buckets."', description: 'Instrução de uso.', isCode: false },
             ],
@@ -1418,6 +1488,25 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para o MinIO.' },
             useCase: 'Realizar backups criptografados, deduplicados e versionados de seus arquivos, diretórios ou sistemas para um armazenamento de objetos S3 privado. Ideal para proteger dados importantes com controle total sobre o armazenamento.',
             steps: [
               { command: 'sudo mkdir -p /opt/docker/kopia-stack/{kopia_config,kopia_cache,kopia_logs,minio_data} && cd /opt/docker/kopia-stack', description: 'Cria a estrutura de diretórios.' },
+              { command: `cat <<'EOF' > .env
+# --- Configurações da Stack de Backup Kopia + MinIO ---
+# IMPORTANTE: Use senhas fortes e únicas em produção.
+
+# Credenciais para o armazenamento S3 (MinIO)
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=SuaSenhaSuperSeguraParaMinio
+
+# Senha mestra para criptografar os backups no Kopia
+KOPIA_PASSWORD=SuaSenhaMestraParaOKopia
+
+# Caminho no host que você deseja fazer backup
+# Exemplo: /home/usuario/documentos
+BACKUP_SOURCE_PATH=/path/para/seus/dados
+
+# Fuso horário para os agendamentos do Kopia
+TZ=America/Sao_Paulo
+EOF`, description: 'Cria o arquivo .env para as variáveis de ambiente.'},
+              { command: 'echo "IMPORTANTE: Edite o arquivo .env com senhas seguras e o caminho correto para backup!"', description: 'Aviso de segurança.', isCode: false },
               { command: `cat <<'EOF' > docker-compose.yml
 services:
   minio:
@@ -1425,8 +1514,8 @@ services:
     container_name: kopia_minio_storage
     command: server /data --console-address ":9001"
     environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=SuaSenhaSuperSegura
+      - MINIO_ROOT_USER=\${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=\${MINIO_ROOT_PASSWORD:?Senha do MinIO não definida}
     volumes:
       - ./minio_data:/data
     networks:
@@ -1447,11 +1536,11 @@ services:
       - ./kopia_config:/app/config
       - ./kopia_cache:/app/cache
       - ./kopia_logs:/app/logs
-      # Monte os diretórios que você deseja fazer backup
-      - /path/para/seus/dados:/dados-para-backup:ro
+      # O caminho definido no .env é montado aqui como somente leitura
+      - \${BACKUP_SOURCE_PATH}:/dados-para-backup:ro
     environment:
-      - KOPIA_PASSWORD=SuaSenhaMestraParaOKopia
-      - TZ=America/Sao_Paulo
+      - KOPIA_PASSWORD=\${KOPIA_PASSWORD:?Senha do Kopia não definida}
+      - TZ=\${TZ}
     depends_on:
       minio:
         condition: service_healthy
@@ -1465,14 +1554,7 @@ networks:
 EOF`, description: 'Cria o arquivo docker-compose.yml para Kopia e MinIO.' },
               { command: 'docker compose up -d', description: 'Inicia a stack de backup.' },
               { command: 'echo "Aguarde o MinIO iniciar. Acesse a UI do Kopia em http://SEU_IP_DO_SERVIDOR:51515"', description: 'Instrução de acesso.', isCode: false },
-              { command: `echo "No primeiro acesso, Kopia pedirá para configurar um repositório. Use as seguintes configurações:"`, description: 'Instrução de configuração.', isCode: false },
-              { command: `echo "- Storage Type: Amazon S3"`, description: 'Tipo de armazenamento.', isCode: false },
-              { command: `echo "- Bucket: (Crie um no MinIO, ex: 'kopia-backups') "`, description: 'Bucket.', isCode: false },
-              { command: `echo "- Endpoint: http://kopia_minio_storage:9000"`, description: 'Endpoint do MinIO (use o nome do serviço).', isCode: false },
-              { command: `echo "- Access Key ID: minioadmin"`, description: 'Credencial de acesso.', isCode: false },
-              { command: `echo "- Secret Access Key: SuaSenhaSuperSegura"`, description: 'Credencial de acesso.', isCode: false },
-              { command: `echo "- Marque 'Disable TLS verification' pois estamos usando HTTP internamente."`, description: 'Configuração de TLS.', isCode: false },
-              { command: 'echo "IMPORTANTE: Altere as senhas e o caminho do volume de backup no docker-compose.yml!"', description: 'Aviso de segurança.', isCode: false },
+              { command: `echo "No primeiro acesso ao Kopia, configure o repositório S3 com o endpoint http://kopia_minio_storage:9000 e as credenciais do .env."`, description: 'Instrução de configuração.', isCode: false },
             ],
           },
         ]
@@ -1544,6 +1626,14 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para o BusyBox.' },
             useCase: 'Ter um ambiente de desenvolvimento gráfico remoto, executar aplicações Linux com GUI em um servidor, ou ter um desktop seguro e isolado para navegação e outras tarefas.',
             steps: [
               { command: 'sudo mkdir -p /opt/docker/ubuntu-desktop && cd /opt/docker/ubuntu-desktop', description: 'Cria o diretório do projeto.' },
+              { command: `cat <<'EOF' > .env
+# --- Configurações do Webtop (Ubuntu Desktop) ---
+# PUID e PGID devem corresponder ao seu usuário no host para permissões corretas
+# Execute 'id -u' e 'id -g' no terminal para obter os valores corretos
+PUID=1000
+PGID=1000
+TZ=Etc/UTC
+EOF`, description: 'Cria o arquivo .env para as configurações de usuário.'},
               { command: `cat <<'EOF' > docker-compose.yml
 services:
   webtop:
@@ -1552,9 +1642,9 @@ services:
     security_opt:
       - seccomp:unconfined # Opcional, mas pode melhorar a compatibilidade
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
+      - PUID=\${PUID}
+      - PGID=\${PGID}
+      - TZ=\${TZ}
       - SUBFOLDER=/ # Opcional
     ports:
       - "3000:3000"
@@ -1566,7 +1656,7 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para o Ubuntu Desktop.' },
               { command: 'docker compose up -d', description: 'Inicia o contêiner (pode levar um tempo para baixar a imagem).' },
               { command: 'echo "Desktop Ubuntu rodando. Acesse a GUI no seu navegador:"', description: 'Instrução.', isCode: false },
               { command: 'echo "http://SEU_IP_DO_SERVIDOR:3000"', description: 'Instrução de acesso.', isCode: false },
-              { command: 'echo "Pode ser necessário ajustar PUID/PGID para corresponder ao seu usuário (`id -u` e `id -g`)."', description: 'Dica de permissão.', isCode: false },
+              { command: 'echo "Edite o .env se precisar ajustar PUID/PGID para corresponder ao seu usuário (`id -u` e `id -g`)."', description: 'Dica de permissão.', isCode: false },
             ],
           },
         ]
@@ -1593,7 +1683,17 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para o Ubuntu Desktop.' },
             useCase: 'Centralizar, pesquisar e analisar logs de múltiplas fontes (aplicações, servidores, firewalls). Ideal para depuração de aplicações, análise de segurança (SIEM) e monitoramento de infraestrutura.',
             steps: [
               { command: 'sudo mkdir -p /opt/docker/graylog-stack/{mongo_data,os_data,graylog_data} && cd /opt/docker/graylog-stack', description: 'Cria a estrutura de diretórios.' },
-              { command: 'echo -n "SuaSenhaAdminAqui" | sha256sum | awk \'{print $1}\'', description: 'Execute este comando para gerar o hash da sua senha de admin e coloque o resultado em GRAYLOG_ROOT_PASSWORD_SHA2.' },
+              { command: `cat <<'EOF' > .env
+# --- Configurações da Stack Graylog ---
+# Senha secreta usada pelo Graylog para criptografia interna (mínimo 16 caracteres).
+GRAYLOG_PASSWORD_SECRET=SuaSenhaSecretaSuperLongaAqui
+# URI externa para acessar o Graylog.
+GRAYLOG_HTTP_EXTERNAL_URI=http://SEU_IP_DO_SERVIDOR:9000/
+# Senha para o usuário 'admin' do Graylog. Será convertida em hash.
+GRAYLOG_ROOT_PASSWORD=SuaSenhaDeAdminAqui
+EOF`, description: 'Cria o arquivo .env para as configurações.'},
+              { command: 'echo "IMPORTANTE: Edite o .env com suas senhas e o IP do servidor!"', description: 'Aviso de segurança.', isCode: false },
+              { command: `export GRAYLOG_ROOT_PASSWORD_SHA2=$(echo -n "$(grep GRAYLOG_ROOT_PASSWORD .env | cut -d '=' -f2-)" | sha256sum | awk '{print $1}') && echo "GRAYLOG_ROOT_PASSWORD_SHA2=$GRAYLOG_ROOT_PASSWORD_SHA2" >> .env`, description: 'Gera o hash da senha de admin e o adiciona ao arquivo .env.'},
               { command: `cat <<'EOF' > docker-compose.yml
 services:
   mongo:
@@ -1626,11 +1726,9 @@ services:
     container_name: graylog
     volumes:
       - ./graylog_data:/usr/share/graylog/data
+    env_file: .env
     environment:
-      - GRAYLOG_PASSWORD_SECRET=SuaSenhaSecretaAqui_MudeIsso # Mínimo 16 caracteres
-      - GRAYLOG_ROOT_PASSWORD_SHA2=COLOQUE_O_HASH_GERADO_AQUI
       - GRAYLOG_HTTP_BIND_ADDRESS=0.0.0.0:9000
-      - GRAYLOG_HTTP_EXTERNAL_URI=http://SEU_IP_DO_SERVIDOR:9000/
       - GRAYLOG_ELASTICSEARCH_HOSTS=http://opensearch:9200
       - GRAYLOG_MONGODB_URI=mongodb://mongo:27017/graylog
     networks:
@@ -1648,7 +1746,7 @@ networks:
   graylog-net: { driver: bridge }
 EOF`, description: 'Cria o arquivo docker-compose.yml para a stack Graylog.' },
               { command: 'docker compose up -d', description: 'Inicia a stack do Graylog.' },
-              { command: 'echo "Acesse a UI em http://SEU_IP_DO_SERVIDOR:9000. Login: admin / SuaSenhaAdminAqui"', description: 'Instrução de acesso.', isCode: false },
+              { command: 'echo "Acesse a UI em http://SEU_IP_DO_SERVIDOR:9000. Login: admin / Senha definida no .env"', description: 'Instrução de acesso.', isCode: false },
             ],
           },
           {
@@ -1657,13 +1755,20 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para a stack Graylog.' },
             useCase: 'Plataforma completa para um Centro de Operações de Segurança (SOC). Gerencie incidentes (TheHive), execute analisadores em IPs, domínios e hashes (Cortex) e correlacione dados com uma base de conhecimento de ameaças (MISP).',
             steps: [
               { command: 'sudo mkdir -p /opt/docker/soar-stack/{thehive,cortex,misp,postgres,opensearch} && cd /opt/docker/soar-stack', description: 'Cria a estrutura de diretórios.' },
+              { command: `cat <<'EOF' > .env
+# --- Configurações da Stack SOAR ---
+POSTGRES_PASSWORD=SuaSenhaPostgres
+MYSQL_ROOT_PASSWORD=SuaSenhaMispDbRoot
+MYSQL_PASSWORD=SuaSenhaMispDbUser
+EOF`, description: 'Cria o arquivo .env para as senhas.'},
+              { command: 'echo "IMPORTANTE: Edite o arquivo .env com senhas seguras!"', description: 'Aviso de segurança.', isCode: false },
               { command: `cat <<'EOF' > docker-compose.yml
 services:
   postgres:
     image: postgres:14
     container_name: soar_postgres
     volumes: ["./postgres:/var/lib/postgresql/data"]
-    environment: { POSTGRES_PASSWORD: "SuaSenhaPostgres" }
+    environment: { POSTGRES_PASSWORD: "\${POSTGRES_PASSWORD:?Senha não definida}" }
     networks: [soar-net]
     restart: unless-stopped
   opensearch:
@@ -1696,7 +1801,7 @@ services:
     image: mariadb:10.5
     container_name: soar_misp_db
     volumes: ["./misp/db:/var/lib/mysql"]
-    environment: { MYSQL_ROOT_PASSWORD: "SuaSenhaMispDbRoot" }
+    environment: { MYSQL_ROOT_PASSWORD: "\${MYSQL_ROOT_PASSWORD:?Senha não definida}" }
     networks: [soar-net]
     restart: unless-stopped
   misp-redis:
@@ -1711,7 +1816,7 @@ services:
     depends_on: [misp-mariadb, misp-redis]
     ports: ["80:80", "443:443"]
     volumes: ["./misp/server:/var/www/MISP/app/files", "./misp/logs:/var/log/"]
-    environment: { MYSQL_HOST: "misp-mariadb", MYSQL_DATABASE: "misp", MYSQL_USER: "misp", MYSQL_PASSWORD: "SuaSenhaMispDbUser" }
+    environment: { MYSQL_HOST: "misp-mariadb", MYSQL_DATABASE: "misp", MYSQL_USER: "misp", MYSQL_PASSWORD: "\${MYSQL_PASSWORD:?Senha não definida}" }
     networks: [soar-net]
     restart: unless-stopped
 networks:
@@ -1741,7 +1846,13 @@ EOF`, description: 'Cria o arquivo docker-compose.yml para a stack SOAR.' },
             steps: [
               { command: 'sudo mkdir -p /opt/docker/stackstorm-stack && cd /opt/docker/stackstorm-stack', description: 'Cria e acessa o diretório do projeto.' },
               { command: `curl -L "https://raw.githubusercontent.com/StackStorm/st2-docker/master/docker-compose.yml" -o docker-compose.yml`, description: 'Baixa o arquivo docker-compose.yml oficial do StackStorm.' },
-              { command: `echo "ST2_USER=st2admin\\nST2_PASSWORD=SuaSenhaSuperSegura" > .env`, description: 'Cria um arquivo .env com as credenciais iniciais.' },
+              { command: `cat <<'EOF' > .env
+# --- Configurações do StackStorm ---
+# Credenciais para o usuário administrador da UI e API.
+ST2_USER=st2admin
+ST2_PASSWORD=SuaSenhaSuperSegura
+EOF`, description: 'Cria um arquivo .env com as credenciais iniciais.' },
+              { command: 'echo "IMPORTANTE: Edite o arquivo .env e defina uma senha segura!"', description: 'Aviso de segurança.', isCode: false },
               { command: 'docker compose up -d', description: 'Inicia a stack completa do StackStorm. Pode levar vários minutos.' },
               { command: 'echo "StackStorm iniciando. A UI estará acessível em http(s)://SEU_IP_DO_SERVIDOR."', description: 'Instrução.', isCode: false },
               { command: 'echo "Use as credenciais do arquivo .env para fazer login."', description: 'Instrução de acesso.', isCode: false },

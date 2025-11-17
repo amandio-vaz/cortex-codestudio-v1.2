@@ -164,6 +164,10 @@ export interface EditorTheme {
     scrollbarThumb: string;
     scrollbarThumbHover: string;
     scrollbarTrack: string;
+    syntaxKeyword: string;
+    syntaxString: string;
+    syntaxComment: string;
+    syntaxVariable: string;
   };
 }
 
@@ -202,3 +206,5 @@ export interface ApiResponse {
   time: number;
   aiAnalysis?: string;
 }
+
+export type EditorType = 'bash' | 'yaml' | 'json';

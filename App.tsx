@@ -12,13 +12,13 @@ import KnowledgeBaseView from './components/KnowledgeBaseView';
 import ApiTestingView from './components/ApiTestingView';
 import DeploymentGuidesView from './components/DeploymentGuidesView';
 import AuthModal from './components/AuthModal';
-import { ActiveView, ValidationIssue, ScriptHistoryEntry, GithubUser, Gist, RefactorSuggestion, ApiRequest } from './types';
-import { analyzeScript, improveScript, generateScript, validateScript, executeScript, addDocstrings, optimizePerformance, checkSecurity, generateApiTestsFromScript, refactorSelection } from './services/geminiService';
+import { ActiveView, ValidationIssue, ScriptHistoryEntry, GithubUser, Gist, RefactorSuggestion, ApiRequest, EditorType, ValidationResult } from './types';
+import { analyzeContent, improveScript, generateScript, validateScript, validateYaml, validateJson, executeScript, addDocstrings, optimizePerformance, checkSecurity, generateApiTestsFromScript, refactorSelection } from './services/geminiService';
 import { getUser, getGistContent, createGist, updateGist } from './services/githubService';
 import { useLanguage } from './context/LanguageContext';
 import { useIconContext } from './context/IconContext';
 import { useUndoRedo } from './hooks/useUndoRedo';
-import { INITIAL_SCRIPT } from './constants';
+import { INITIAL_SCRIPT, INITIAL_YAML, INITIAL_JSON } from './constants';
 
 const MAX_HISTORY_ENTRIES = 20;
 
@@ -26,10 +26,21 @@ const App: React.FC = () => {
   const { t } = useLanguage();
   const { getIconComponent } = useIconContext();
 
-  const [script, { set: setScript, undo, redo, reset: resetScript, canUndo, canRedo }] = useUndoRedo<string>(() => {
-    const savedScript = localStorage.getItem('bashstudio-script');
-    return savedScript || INITIAL_SCRIPT;
-  });
+  // --- Editor State Management ---
+  const [activeEditor, setActiveEditor] = useState<EditorType>('yaml');
+
+  const [bashContent, bashFns] = useUndoRedo<string>(() => localStorage.getItem('bashstudio-bash') || INITIAL_SCRIPT);
+  const [yamlContent, yamlFns] = useUndoRedo<string>(() => localStorage.getItem('bashstudio-yaml') || INITIAL_YAML);
+  const [jsonContent, jsonFns] = useUndoRedo<string>(() => localStorage.getItem('bashstudio-json') || INITIAL_JSON);
+
+  const editorStates = {
+    bash: { content: bashContent, fns: bashFns, storageKey: 'bashstudio-bash' },
+    yaml: { content: yamlContent, fns: yamlFns, storageKey: 'bashstudio-yaml' },
+    json: { content: jsonContent, fns: jsonFns, storageKey: 'bashstudio-json' },
+  };
+
+  const activeContent = editorStates[activeEditor].content;
+  const activeFns = editorStates[activeEditor].fns;
 
   const [result, setResult] = useState<string>('');
   const [resultTitle, setResultTitle] = useState<string>(t('tabAssistant'));
@@ -48,7 +59,6 @@ const App: React.FC = () => {
   const [apiTestCollection, setApiTestCollection] = useState<ApiRequest[] | null>(null);
   const [isEditorCollapsed, setIsEditorCollapsed] = useState(false);
 
-
   // GitHub State
   const [githubToken, setGithubToken] = useState<string | null>(null);
   const [githubUser, setGithubUser] = useState<GithubUser | null>(null);
@@ -57,17 +67,15 @@ const App: React.FC = () => {
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const [sliderStyle, setSliderStyle] = useState({});
 
-  const scriptRef = useRef(script);
+  const scriptRef = useRef(activeContent);
   useEffect(() => {
-    scriptRef.current = script;
-  }, [script]);
+    scriptRef.current = activeContent;
+  }, [activeContent]);
 
-  // Add loaded class to body to make app visible
   useEffect(() => {
     document.body.classList.add('loaded');
   }, []);
 
-  // Handle notification timeouts
   useEffect(() => {
     if (notificationMessage) {
       const timer = setTimeout(() => {
@@ -77,7 +85,6 @@ const App: React.FC = () => {
     }
   }, [notificationMessage]);
 
-  // Load data from localStorage on initial render & check for KB updates
   useEffect(() => {
     try {
       const savedHistory = localStorage.getItem('bashstudio-script-history');
@@ -85,16 +92,13 @@ const App: React.FC = () => {
 
       const savedToken = localStorage.getItem('bashstudio-github-token');
       if (savedToken) handleTokenSubmit(savedToken);
-
-      // Knowledge Base automatic update check (every 30 days)
+      
       const lastCheckKey = 'bashstudio-last-kb-check';
       const lastCheck = localStorage.getItem(lastCheckKey);
       const thirtyDays = 30 * 24 * 60 * 60 * 1000;
       const now = Date.now();
 
       if (!lastCheck || (now - parseInt(lastCheck, 10)) > thirtyDays) {
-        // In a real app, you might fetch updates here.
-        // For this mock, we just notify the user and update the timestamp.
         setNotificationMessage(t('knowledgeUpdateCheckNotification'));
         localStorage.setItem(lastCheckKey, now.toString());
       }
@@ -108,50 +112,51 @@ const App: React.FC = () => {
     setFullscreenView(prev => (prev === view ? null : view));
   };
 
-  const handleScriptChange = (newScript: string) => {
-    setScript(newScript);
+  const handleContentChange = (newContent: string) => {
+    activeFns.set(newContent);
     if (validationIssues.length > 0) {
       setValidationIssues([]);
     }
   };
   
   const handleSaveScript = useCallback(() => {
-    localStorage.setItem('bashstudio-script', script);
+    const { content, storageKey } = editorStates[activeEditor];
+    localStorage.setItem(storageKey, content);
     setNotificationMessage(t('saveNotification'));
     
-    // Update history
-    setScriptHistory(prevHistory => {
-        if (prevHistory.length > 0 && prevHistory[0].content === script) {
-            return prevHistory;
-        }
-        const newEntry: ScriptHistoryEntry = { timestamp: Date.now(), content: script };
-        const updatedHistory = [newEntry, ...prevHistory].slice(0, MAX_HISTORY_ENTRIES);
-        localStorage.setItem('bashstudio-script-history', JSON.stringify(updatedHistory));
-        return updatedHistory;
-    });
+    // Only update history for bash scripts for now
+    if (activeEditor === 'bash') {
+      setScriptHistory(prevHistory => {
+          if (prevHistory.length > 0 && prevHistory[0].content === content) {
+              return prevHistory;
+          }
+          const newEntry: ScriptHistoryEntry = { timestamp: Date.now(), content };
+          const updatedHistory = [newEntry, ...prevHistory].slice(0, MAX_HISTORY_ENTRIES);
+          localStorage.setItem('bashstudio-script-history', JSON.stringify(updatedHistory));
+          return updatedHistory;
+      });
+    }
 
-  }, [script, t]);
+  }, [activeEditor, editorStates]);
 
   const handleRunInTerminal = useCallback(() => {
-    navigator.clipboard.writeText(script)
+    if (activeEditor !== 'bash') return;
+    navigator.clipboard.writeText(activeContent)
       .then(() => {
         setNotificationMessage(t('runInTerminalNotification'));
       })
       .catch(err => {
         console.error('Failed to copy script to clipboard:', err);
       });
-  }, [script, t]);
+  }, [activeContent, activeEditor, t]);
 
-  const handleClearScript = () => resetScript('');
+  const handleClearScript = () => activeFns.reset('');
 
-  // FIX: Added handler for opening execution config.
   const handleOpenExecutionConfig = useCallback(() => {
-    // TODO: Implement execution configuration modal
     console.log("Opening execution configuration...");
     setNotificationMessage(t('executionConfigNotImplemented'));
   }, [t]);
 
-  // Keyboard shortcuts for save, undo, redo
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const isMac = navigator.userAgent.includes('Mac');
@@ -163,13 +168,13 @@ const App: React.FC = () => {
       } else if (modKey && event.key.toLowerCase() === 'z') {
         event.preventDefault();
         if (event.shiftKey) {
-          redo();
+          activeFns.redo();
         } else {
-          undo();
+          activeFns.undo();
         }
       } else if (!isMac && event.ctrlKey && event.key.toLowerCase() === 'y') {
         event.preventDefault();
-        redo();
+        activeFns.redo();
       }
     };
 
@@ -177,10 +182,12 @@ const App: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [handleSaveScript, undo, redo]);
+  }, [handleSaveScript, activeFns]);
 
   const handleRestoreScript = (content: string) => {
-    resetScript(content);
+    // History is only for bash
+    bashFns.reset(content);
+    setActiveEditor('bash');
     setCurrentGistId(null);
     setIsHistoryPanelOpen(false);
   };
@@ -222,11 +229,13 @@ const App: React.FC = () => {
 
   const handleLoadGist = async (gist: Gist) => {
     if (!githubToken) return;
+    // For simplicity, we assume gists are always bash for now
     const bashFile = Object.values(gist.files).find(f => f.filename.endsWith('.sh') || f.language === 'Shell');
     if (bashFile) {
         try {
             const content = await getGistContent(bashFile.raw_url, githubToken);
-            resetScript(content);
+            bashFns.reset(content);
+            setActiveEditor('bash');
             setCurrentGistId(gist.id);
             setIsGithubPanelOpen(false);
         } catch (error) {
@@ -236,10 +245,10 @@ const App: React.FC = () => {
   };
 
   const handleSaveToGist = async (description: string, isPublic: boolean) => {
-    if (!githubToken || !script) return;
-    const filename = description.toLowerCase().replace(/\s+/g, '-') + '.sh';
+    if (!githubToken || !activeContent) return;
+    const filename = description.toLowerCase().replace(/\s+/g, '-') + '.sh'; // Assume bash
     try {
-      const newGist = await createGist(description, filename, script, isPublic, githubToken);
+      const newGist = await createGist(description, filename, activeContent, isPublic, githubToken);
       setCurrentGistId(newGist.id);
       setNotificationMessage(t('gistUpdateSuccessNotification'));
     } catch(error) {
@@ -248,9 +257,9 @@ const App: React.FC = () => {
   };
 
   const handleUpdateGist = async () => {
-    if (!githubToken || !script || !currentGistId) return;
+    if (!githubToken || !activeContent || !currentGistId) return;
     try {
-        await updateGist(currentGistId, script, githubToken);
+        await updateGist(currentGistId, activeContent, githubToken);
         setNotificationMessage(t('gistUpdateSuccessNotification'));
     } catch (error) {
         console.error("Failed to update Gist:", error);
@@ -259,7 +268,7 @@ const App: React.FC = () => {
 
   // --- API Call Handler ---
   const handleApiCall = useCallback(async (
-    apiFunc: (param: any) => Promise<any>, 
+    apiFunc: (param: any, fileType?: any) => Promise<any>, 
     param: any, 
     titleKey: string, 
     isGenerateOp: boolean = false,
@@ -274,7 +283,7 @@ const App: React.FC = () => {
     setActiveView(ActiveView.Assistant);
     setResultTitle(t('thinkingTitle', { title }));
     try {
-      const response = await apiFunc(param);
+      const response = await apiFunc(param, activeEditor);
       if (onSuccess) {
         onSuccess(response);
       } else {
@@ -291,14 +300,22 @@ const App: React.FC = () => {
       setIsLoading(false);
       if (isGenerateOp) setIsThinking(false);
     }
-  }, [t]);
+  }, [t, activeEditor]);
 
-  const handleAnalyze = () => handleApiCall(analyzeScript, script, 'analysisTitle');
-  const handleImprove = () => handleApiCall(improveScript, script, 'improvementTitle');
+  const handleAnalyze = () => handleApiCall(analyzeContent, activeContent, 'analysisTitle');
+  const handleImprove = () => {
+    if (activeEditor === 'bash') {
+      handleApiCall(improveScript, activeContent, 'improvementTitle');
+    } else {
+      // For YAML/JSON, "Improve" also uses the analysis endpoint for Phase 1
+      handleApiCall(analyzeContent, activeContent, 'improvementTitle');
+    }
+  }
   
   const handleExecute = (withSudo: boolean = false) => {
-    const escapedScript = script.replace(/'/g, "'\\''");
-    const scriptToExecute = withSudo ? `sudo bash -c '${escapedScript}'` : script;
+    if (activeEditor !== 'bash') return;
+    const escapedScript = activeContent.replace(/'/g, "'\\''");
+    const scriptToExecute = withSudo ? `sudo bash -c '${escapedScript}'` : activeContent;
     handleApiCall(executeScript, scriptToExecute, 'executionTitle', false, (response: string) => {
       setResult(response);
       setResultTitle(t('executionTitle'));
@@ -315,18 +332,30 @@ const App: React.FC = () => {
   };
 
   const handleAutoValidate = useCallback(async () => {
-    const scriptToValidate = scriptRef.current;
-    if (!scriptToValidate.trim()) {
+    const contentToValidate = scriptRef.current;
+    if (!contentToValidate.trim()) {
       setValidationIssues([]);
       return;
     }
     try {
-      const validationResult = await validateScript(scriptToValidate);
-      if (scriptRef.current === scriptToValidate) setValidationIssues(validationResult.issues);
+      let validationResult: ValidationResult | null = null;
+      if (activeEditor === 'bash') {
+        validationResult = await validateScript(contentToValidate);
+      } else if (activeEditor === 'yaml') {
+        validationResult = await validateYaml(contentToValidate);
+      } else if (activeEditor === 'json') {
+        validationResult = await validateJson(contentToValidate);
+      }
+      
+      if (validationResult && scriptRef.current === contentToValidate) {
+          setValidationIssues(validationResult.issues);
+      } else {
+          setValidationIssues([]);
+      }
     } catch (error) {
       console.error("Auto-validation error:", error);
     }
-  }, []);
+  }, [activeEditor]);
 
   const handleValidate = async () => {
     setRefactorSuggestion(null);
@@ -337,7 +366,15 @@ const App: React.FC = () => {
     const titleKey = 'validationSucceededWithIssuesTitle';
     setResultTitle(t('thinkingTitle', { title: t(titleKey) }));
     try {
-      const res = await validateScript(script);
+      let res: ValidationResult;
+      if (activeEditor === 'bash') {
+        res = await validateScript(activeContent);
+      } else if (activeEditor === 'yaml') {
+        res = await validateYaml(activeContent);
+      } else { // JSON
+        res = await validateJson(activeContent);
+      }
+
       setValidationIssues(res.issues);
       let report = `## ${t(titleKey)}\n\n`;
       if (res.issues.length === 0) {
@@ -387,7 +424,8 @@ const App: React.FC = () => {
       let report = '';
 
       if (validation.isValid) {
-        resetScript(extractedScript);
+        bashFns.reset(extractedScript); // Generation always sets the bash editor
+        setActiveEditor('bash');
         setCurrentGistId(null);
         setValidationIssues(validation.issues); // Show warnings in editor
         
@@ -426,7 +464,7 @@ const App: React.FC = () => {
   };
 
   const handleRefactorSelection = async (selectedText: string, range: { start: number; end: number }) => {
-    if (!selectedText) return;
+    if (!selectedText || activeEditor !== 'bash') return;
     
     setRefactorSuggestion(null); // Clear previous suggestion
     setIsLoading(true);
@@ -452,33 +490,41 @@ const App: React.FC = () => {
   };
 
   const handleApplyRefactoring = () => {
-    if (!refactorSuggestion) return;
+    if (!refactorSuggestion || activeEditor !== 'bash') return;
     
     const { originalSelection, suggestedCode } = refactorSuggestion;
-    const currentScript = scriptRef.current;
     
     const newScript = 
-        currentScript.substring(0, originalSelection.start) +
+        activeContent.substring(0, originalSelection.start) +
         suggestedCode +
-        currentScript.substring(originalSelection.end);
+        activeContent.substring(originalSelection.end);
         
-    setScript(newScript);
+    bashFns.set(newScript);
     setRefactorSuggestion(null);
     setNotificationMessage(t('refactoringAppliedNotification'));
   };
 
-  const handleAddDocstrings = () => handleApiCall(addDocstrings, script, 'docstringsTitle', false, (response: string) => {
-      resetScript(response);
+  const handleAddDocstrings = () => {
+    if (activeEditor !== 'bash') return;
+    handleApiCall(addDocstrings, activeContent, 'docstringsTitle', false, (response: string) => {
+      bashFns.reset(response);
       setCurrentGistId(null);
       const resultMessage = `**${t('docstringsTitle')}**\n\n${t('docstringsSuccessMessage')}\n\n\`\`\`bash\n${response}\n\`\`\``;
       setResult(resultMessage);
       setResultTitle(t('docstringsTitle'));
   });
-  const handleOptimizePerformance = () => handleApiCall(optimizePerformance, script, 'optimizationTitle');
-  const handleCheckSecurity = () => handleApiCall(checkSecurity, script, 'securityTitle');
+  }
+  const handleOptimizePerformance = () => {
+    if (activeEditor !== 'bash') return;
+    handleApiCall(optimizePerformance, activeContent, 'optimizationTitle');
+  }
+  const handleCheckSecurity = () => {
+    if (activeEditor !== 'bash') return;
+    handleApiCall(checkSecurity, activeContent, 'securityTitle');
+  }
   
   const handleTestApi = (scriptFragment: string) => {
-    if (!scriptFragment?.trim()) return;
+    if (!scriptFragment?.trim() || activeEditor !== 'bash') return;
     const title = t('apiTestTitle');
     setApiTestCollection(null);
     setIsLoading(true);
@@ -564,13 +610,13 @@ const App: React.FC = () => {
            flex-col transition-all duration-300
         `}>
           <ScriptEditor
-            script={script}
-            setScript={handleScriptChange}
+            content={activeContent}
+            setContent={handleContentChange}
             onSave={handleSaveScript}
-            onUndo={undo}
-            onRedo={redo}
-            canUndo={canUndo}
-            canRedo={canRedo}
+            undo={activeFns.undo}
+            redo={activeFns.redo}
+            canUndo={activeFns.canUndo}
+            canRedo={activeFns.canRedo}
             onAnalyze={handleAnalyze}
             onImprove={handleImprove}
             onValidate={handleValidate}
@@ -596,6 +642,8 @@ const App: React.FC = () => {
             currentGistId={currentGistId}
             onUpdateGist={handleUpdateGist}
             onOpenExecutionConfig={handleOpenExecutionConfig}
+            activeEditor={activeEditor}
+            onSetEditor={setActiveEditor}
           />
         </div>
         <div className={`
@@ -689,7 +737,7 @@ const App: React.FC = () => {
         onLoadGist={handleLoadGist}
         onSaveGist={handleSaveToGist}
         onUpdateGist={handleUpdateGist}
-        currentScript={script}
+        currentScript={activeContent}
         currentGistId={currentGistId}
       />
       <footer className="py-3 px-6 text-xs text-gray-500 dark:text-gray-500 flex justify-between items-center border-t border-gray-200 dark:border-white/10">

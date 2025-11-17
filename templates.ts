@@ -81,6 +81,13 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
     category: 'system',
   },
   {
+    id: 'disk-space-check-configurable',
+    nameKey: 'template_diskSpaceConfigurable_name',
+    descriptionKey: 'template_diskSpaceConfigurable_desc',
+    prompt: 'Crie um script de monitoramento de espaço em disco que seja configurável via argumentos de linha de comando. O script deve: 1. Aceitar um caminho de partição/montagem com a flag `-p` (ex: `-p /var`). Se não for fornecido, deve usar a partição raiz (`/`). 2. Aceitar um limite de uso em porcentagem com a flag `-t` (ex: `-t 85`). O padrão deve ser 90%. 3. Usar o comando `df` para obter o uso do disco. 4. Se o uso atual for maior ou igual ao limite, o script deve imprimir uma mensagem de ALERTA para stderr e sair com código 1. 5. Se o uso estiver abaixo do limite, deve imprimir uma mensagem de OK para stdout e sair com código 0. 6. O script deve validar se o caminho da partição fornecido é válido. Inclua uma função de ajuda (`-h` ou `--help`).',
+    category: 'system',
+  },
+  {
     id: 'system-info-report',
     nameKey: 'template_systemInfoReport_name',
     descriptionKey: 'template_systemInfoReport_desc',

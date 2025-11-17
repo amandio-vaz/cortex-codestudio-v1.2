@@ -300,34 +300,42 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({ script, setScript, onSave, 
   const utilityButtonClasses = "w-full flex items-center justify-center px-3 py-2 text-sm font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-gray-200 hover:bg-gray-300 text-gray-800 dark:text-gray-200 dark:bg-gradient-to-br dark:from-gray-500 dark:to-gray-600 dark:hover:from-gray-600 dark:hover:to-gray-700 focus:ring-4 focus:outline-none focus:ring-gray-300 dark:focus:ring-gray-800";
   
   return (
-    <div className="bg-white/60 dark:bg-black/20 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-xl flex flex-col h-full p-4 relative shadow-lg dark:shadow-2xl dark:shadow-black/20"
-         style={{ backgroundColor: theme.isDark ? theme.colors.resultBg : undefined }}>
+    <div
+      className={`bg-white/60 dark:bg-black/20 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-xl relative shadow-lg dark:shadow-2xl dark:shadow-black/20 transition-all duration-300 ${
+        isCollapsed ? 'p-3' : 'p-4 flex flex-col h-full'
+      }`}
+      style={{ backgroundColor: theme.isDark ? theme.colors.resultBg : undefined }}
+    >
       <CommandPalette
         isOpen={isPaletteOpen}
         onClose={() => setIsPaletteOpen(false)}
         commands={commands}
       />
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold" style={{ color: theme.colors.resultTitle }}>{t('editorTitle')}</h2>
+      <div className={`flex justify-between items-center w-full ${!isCollapsed ? 'mb-4' : ''}`}>
+        <h2 className={`${isCollapsed ? 'text-lg' : 'text-xl'} font-semibold`} style={{ color: theme.colors.resultTitle }}>
+          {t('editorTitle')}
+        </h2>
         <div className="flex items-center space-x-1">
-            <Tooltip text={isCollapsed ? t('tooltipExpandEditor') : t('tooltipCollapseEditor')}>
-                <button 
-                    onClick={onToggleCollapse}
-                    className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-colors duration-200"
-                    aria-label={isCollapsed ? 'Expand editor' : 'Collapse editor'}
-                >
-                    {isCollapsed ? <ChevronDownIcon className="h-5 w-5" /> : <ChevronUpIcon className="h-5 w-5" />}
-                </button>
-            </Tooltip>
+          <Tooltip text={isCollapsed ? t('tooltipExpandEditor') : t('tooltipCollapseEditor')}>
+            <button
+              onClick={onToggleCollapse}
+              className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-colors duration-200"
+              aria-label={isCollapsed ? 'Expand editor' : 'Collapse editor'}
+            >
+              {isCollapsed ? <ChevronDownIcon className="h-5 w-5" /> : <ChevronUpIcon className="h-5 w-5" />}
+            </button>
+          </Tooltip>
+          {!isCollapsed && (
             <Tooltip text={isFullscreen ? t('tooltipExitFullscreen') : t('tooltipEnterFullscreen')}>
-                <button 
-                    onClick={onToggleFullscreen}
-                    className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-colors duration-200"
-                    aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-                >
-                    {isFullscreen ? <ArrowsPointingInIcon className="h-5 w-5" /> : <ArrowsPointingOutIcon className="h-5 w-5" />}
-                </button>
+              <button
+                onClick={onToggleFullscreen}
+                className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-colors duration-200"
+                aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              >
+                {isFullscreen ? <ArrowsPointingInIcon className="h-5 w-5" /> : <ArrowsPointingOutIcon className="h-5 w-5" />}
+              </button>
             </Tooltip>
+          )}
         </div>
       </div>
       {!isCollapsed && (

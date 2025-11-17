@@ -35,7 +35,7 @@ const App: React.FC = () => {
   const [resultTitle, setResultTitle] = useState<string>(t('tabAssistant'));
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isThinking, setIsThinking] = useState<boolean>(false);
-  const [activeView, setActiveView] = useState<ActiveView>(ActiveView.Assistant);
+  const [activeView, setActiveView] = useState<ActiveView>(ActiveView.DeploymentGuides);
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState<boolean>(false);
@@ -555,7 +555,7 @@ const App: React.FC = () => {
       <main className="flex-grow p-4 lg:p-6 flex flex-col lg:flex-row gap-6">
         <div className={`
           ${fullscreenView === 'result' ? 'hidden' : 'flex'}
-          ${fullscreenView === 'editor' ? 'w-full' : isEditorCollapsed ? 'lg:w-auto' : 'lg:w-1/2'}
+          ${fullscreenView === 'editor' ? 'w-full' : isEditorCollapsed ? 'w-full lg:w-auto' : 'lg:w-1/2'}
            flex-col transition-all duration-300
         `}>
           <ScriptEditor
@@ -595,64 +595,66 @@ const App: React.FC = () => {
         </div>
         <div className={`
           ${fullscreenView === 'editor' ? 'hidden' : 'flex'}
-          ${fullscreenView === 'result' ? 'w-full' : isEditorCollapsed ? 'lg:flex-1' : 'lg:w-1/2'}
+          ${fullscreenView === 'result' ? 'w-full' : isEditorCollapsed ? 'flex-1' : 'lg:w-1/2'}
           flex-col min-h-[500px] lg:min-h-0 transition-all duration-300
         `}>
-          <div ref={tabContainerRef} className="relative flex border-b border-gray-300 dark:border-white/10 mb-4">
-             <TabButton 
-                label={t('tabAssistant')}
-                icon={<AssistantIcon className="h-5 w-5 mr-2" />}
-                isActive={activeView === ActiveView.Assistant}
-                onClick={() => setActiveView(ActiveView.Assistant)}
-                tooltipText={t('tooltipAssistantTab')}
-                view={ActiveView.Assistant}
-             />
-             <TabButton 
-                label={t('tabGenerator')}
-                icon={<GeneratorIcon className="h-5 w-5 mr-2" />}
-                isActive={activeView === ActiveView.Generator}
-                onClick={() => setActiveView(ActiveView.Generator)}
-                tooltipText={t('tooltipGeneratorTab')}
-                view={ActiveView.Generator}
-             />
+          <div ref={tabContainerRef} className="relative border-b border-gray-300 dark:border-white/10 mb-4 overflow-hidden">
+            <div className="flex overflow-x-auto pb-2 -mb-2 hide-scrollbar">
               <TabButton 
-                label={t('tabApiTesting')}
-                icon={<ApiTestingIcon className="h-5 w-5 mr-2" />}
-                isActive={activeView === ActiveView.ApiTesting}
-                onClick={() => setActiveView(ActiveView.ApiTesting)}
-                tooltipText={t('tooltipApiTestingTab')}
-                view={ActiveView.ApiTesting}
-             />
-             <TabButton 
-                label={t('tabChatbot')}
-                icon={<ChatIcon className="h-5 w-5 mr-2" />}
-                isActive={activeView === ActiveView.Chat}
-                onClick={() => setActiveView(ActiveView.Chat)}
-                tooltipText={t('tooltipChatbotTab')}
-                view={ActiveView.Chat}
-             />
-             <TabButton
-                label={t('tabKnowledgeBase')}
-                icon={<KnowledgeBaseIcon className="h-5 w-5 mr-2" />}
-                isActive={activeView === ActiveView.KnowledgeBase}
-                onClick={() => setActiveView(ActiveView.KnowledgeBase)}
-                tooltipText={t('tooltipKnowledgeBaseTab')}
-                view={ActiveView.KnowledgeBase}
-             />
+                  label={t('tabAssistant')}
+                  icon={<AssistantIcon className="h-5 w-5 mr-2" />}
+                  isActive={activeView === ActiveView.Assistant}
+                  onClick={() => setActiveView(ActiveView.Assistant)}
+                  tooltipText={t('tooltipAssistantTab')}
+                  view={ActiveView.Assistant}
+              />
+              <TabButton 
+                  label={t('tabGenerator')}
+                  icon={<GeneratorIcon className="h-5 w-5 mr-2" />}
+                  isActive={activeView === ActiveView.Generator}
+                  onClick={() => setActiveView(ActiveView.Generator)}
+                  tooltipText={t('tooltipGeneratorTab')}
+                  view={ActiveView.Generator}
+              />
+                <TabButton 
+                  label={t('tabApiTesting')}
+                  icon={<ApiTestingIcon className="h-5 w-5 mr-2" />}
+                  isActive={activeView === ActiveView.ApiTesting}
+                  onClick={() => setActiveView(ActiveView.ApiTesting)}
+                  tooltipText={t('tooltipApiTestingTab')}
+                  view={ActiveView.ApiTesting}
+              />
+              <TabButton 
+                  label={t('tabChatbot')}
+                  icon={<ChatIcon className="h-5 w-5 mr-2" />}
+                  isActive={activeView === ActiveView.Chat}
+                  onClick={() => setActiveView(ActiveView.Chat)}
+                  tooltipText={t('tooltipChatbotTab')}
+                  view={ActiveView.Chat}
+              />
               <TabButton
-                label={t('tabDeploymentGuides')}
-                icon={<DeploymentGuidesIcon className="h-5 w-5 mr-2" />}
-                isActive={activeView === ActiveView.DeploymentGuides}
-                onClick={() => setActiveView(ActiveView.DeploymentGuides)}
-                tooltipText={t('tooltipDeploymentGuidesTab')}
-                view={ActiveView.DeploymentGuides}
-             />
+                  label={t('tabKnowledgeBase')}
+                  icon={<KnowledgeBaseIcon className="h-5 w-5 mr-2" />}
+                  isActive={activeView === ActiveView.KnowledgeBase}
+                  onClick={() => setActiveView(ActiveView.KnowledgeBase)}
+                  tooltipText={t('tooltipKnowledgeBaseTab')}
+                  view={ActiveView.KnowledgeBase}
+              />
+                <TabButton
+                  label={t('tabDeploymentGuides')}
+                  icon={<DeploymentGuidesIcon className="h-5 w-5 mr-2" />}
+                  isActive={activeView === ActiveView.DeploymentGuides}
+                  onClick={() => setActiveView(ActiveView.DeploymentGuides)}
+                  tooltipText={t('tooltipDeploymentGuidesTab')}
+                  view={ActiveView.DeploymentGuides}
+              />
+            </div>
              <div 
                className="absolute bottom-0 h-0.5 bg-gradient-to-r from-cyan-500 to-purple-600 dark:from-cyan-400 dark:to-purple-500 transition-all duration-300 ease-in-out" 
                style={sliderStyle}
               />
           </div>
-          <div className="flex-grow transition-opacity duration-300" key={activeView}>
+          <div className="flex-grow transition-opacity duration-300 min-h-0" key={activeView}>
              {renderActiveView()}
           </div>
         </div>

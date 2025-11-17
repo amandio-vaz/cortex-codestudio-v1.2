@@ -5,7 +5,8 @@ import { DeploymentGuide, DeploymentGuideStep } from '../types';
 import Tooltip from './Tooltip';
 import { ClipboardIcon, CheckCircleIcon } from '../icons';
 
-const CopyButton: React.FC<{ code: string }> = ({ code }) => {
+// FIX: Added optional `children` prop to allow custom content and fixed state management.
+const CopyButton: React.FC<{ code: string; onCopy?: () => void; children?: React.ReactNode }> = ({ code, onCopy, children }) => {
     const { t } = useLanguage();
     const [isCopied, setIsCopied] = useState(false);
   
@@ -13,6 +14,7 @@ const CopyButton: React.FC<{ code: string }> = ({ code }) => {
       e.stopPropagation();
       navigator.clipboard.writeText(code);
       setIsCopied(true);
+      if (onCopy) onCopy();
       setTimeout(() => setIsCopied(false), 2000);
     };
   
@@ -22,11 +24,11 @@ const CopyButton: React.FC<{ code: string }> = ({ code }) => {
           onClick={handleCopy}
           className="bg-gray-300/30 hover:bg-gray-400/50 text-gray-600 dark:bg-slate-700/50 dark:hover:bg-slate-600/50 dark:text-gray-300 p-1.5 rounded-md transition-all flex items-center"
         >
-          {isCopied ? (
+          {children ?? (isCopied ? (
             <CheckCircleIcon className="h-5 w-5 text-green-500 dark:text-green-400" />
           ) : (
             <ClipboardIcon className="h-5 w-5" />
-          )}
+          ))}
         </button>
       </Tooltip>
     );
@@ -56,6 +58,17 @@ const CommandStep: React.FC<{ step: DeploymentGuideStep }> = ({ step }) => {
 
 const GuideDetail: React.FC<{ guide: DeploymentGuide | null }> = ({ guide }) => {
     const { t } = useLanguage();
+    const [isAllCopied, setIsAllCopied] = useState(false);
+
+    useEffect(() => {
+        setIsAllCopied(false);
+    }, [guide]);
+
+    // FIX: Added timeout to reset copied state for better UX.
+    const handleCopyAll = () => {
+        setIsAllCopied(true);
+        setTimeout(() => setIsAllCopied(false), 2000);
+    };
 
     if (!guide) {
         return <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">Selecione um guia para começar.</div>;
@@ -64,24 +77,18 @@ const GuideDetail: React.FC<{ guide: DeploymentGuide | null }> = ({ guide }) => 
     const fullScript = guide.steps
       .filter(step => step.isCode !== false)
       .map(step => step.command)
-      .join('\n');
+      .join(' && \\\n');
 
     return (
         <div className="p-6 h-full overflow-y-auto hide-scrollbar">
             <div className="flex justify-between items-start mb-4">
                 <h3 className="font-bold text-2xl text-gray-900 dark:text-gray-100">{guide.title}</h3>
-                <Tooltip text={t('tooltipCopyAll')}>
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(fullScript);
-                        }}
-                        className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-700/50 dark:hover:bg-slate-600/50"
-                    >
-                        <ClipboardIcon className="h-5 w-5" />
-                        Copiar Todos os Comandos
-                    </button>
-                </Tooltip>
+                <CopyButton code={fullScript} onCopy={handleCopyAll}>
+                    <div className="flex items-center gap-2">
+                        {isAllCopied ? <CheckCircleIcon className="h-5 w-5 text-green-400" /> : <ClipboardIcon className="h-5 w-5" />}
+                        {isAllCopied ? t('buttonCopied') : 'Copiar Todos os Comandos'}
+                    </div>
+                </CopyButton>
             </div>
             
             <div className="mb-6 p-4 bg-gray-100/50 dark:bg-slate-800/40 rounded-lg border border-gray-200 dark:border-white/10">
@@ -162,40 +169,48 @@ const DeploymentGuidesView: React.FC = () => {
             </div>
             
             <div className="flex flex-grow min-h-0">
-                <div className="w-1/3 lg:w-1/4 flex flex-col border-r border-gray-300 dark:border-white/10">
+                <div className="w-1/3 lg:w-1/4 flex flex-col border-r border-gray-300 dark:border-white/10 bg-gray-50/30 dark:bg-slate-900/20">
                     {/* Main Categories */}
-                    <div className="flex border-b border-gray-300 dark:border-white/10 flex-shrink-0 overflow-x-auto hide-scrollbar">
-                        {categories.map(categoryKey => (
-                            <button
-                                key={categoryKey}
-                                onClick={() => setActiveCategory(categoryKey)}
-                                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors duration-200 flex-shrink-0 whitespace-nowrap ${
-                                    activeCategory === categoryKey
-                                        ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400'
-                                        : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white'
-                                }`}
-                            >
-                                {t(DEPLOYMENT_GUIDES_DATA[categoryKey].displayName)}
-                            </button>
-                        ))}
+                    <div className="flex-shrink-0 border-b border-gray-300 dark:border-white/10">
+                        <div className="overflow-x-auto hide-scrollbar">
+                            <div className="flex">
+                                {categories.map(categoryKey => (
+                                    <button
+                                        key={categoryKey}
+                                        onClick={() => setActiveCategory(categoryKey)}
+                                        className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors duration-200 flex-shrink-0 whitespace-nowrap ${
+                                            activeCategory === categoryKey
+                                                ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400'
+                                                : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white'
+                                        }`}
+                                    >
+                                        {t(DEPLOYMENT_GUIDES_DATA[categoryKey].displayName)}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Sub Categories */}
                     {hasSubCategories && activeCategoryData.subCategories && (
-                        <div className="flex border-b border-gray-200 dark:border-slate-800 flex-shrink-0 overflow-x-auto bg-gray-50 dark:bg-slate-900/50 hide-scrollbar">
-                        {Object.keys(activeCategoryData.subCategories).map(subKey => (
-                            <button
-                            key={subKey}
-                            onClick={() => setActiveSubCategory(subKey)}
-                            className={`px-3 py-2 text-xs font-semibold transition-colors duration-200 flex-shrink-0 whitespace-nowrap rounded-t-lg ${
-                                activeSubCategory === subKey
-                                ? 'text-cyan-600 dark:text-cyan-400 bg-white/60 dark:bg-slate-800/60'
-                                : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white'
-                            }`}
-                            >
-                            {t(activeCategoryData.subCategories![subKey].displayName)}
-                            </button>
-                        ))}
+                        <div className="flex-shrink-0 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/30">
+                            <div className="overflow-x-auto hide-scrollbar">
+                                <div className="flex">
+                                    {Object.keys(activeCategoryData.subCategories).map(subKey => (
+                                        <button
+                                            key={subKey}
+                                            onClick={() => setActiveSubCategory(subKey)}
+                                            className={`px-3 py-2 text-xs font-semibold transition-colors duration-200 flex-shrink-0 whitespace-nowrap rounded-t-lg ${
+                                                activeSubCategory === subKey
+                                                ? 'text-cyan-600 dark:text-cyan-400 bg-white/60 dark:bg-black/20'
+                                                : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white'
+                                            }`}
+                                        >
+                                            {t(activeCategoryData.subCategories![subKey].displayName)}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     )}
                     

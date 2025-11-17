@@ -552,7 +552,7 @@ const App: React.FC = () => {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
       />
-      <main className="flex-grow p-4 lg:p-6 flex flex-col lg:flex-row gap-6">
+      <main className="flex-grow p-4 lg:p-6 flex flex-col lg:flex-row gap-6 min-w-0">
         <div className={`
           ${fullscreenView === 'result' ? 'hidden' : 'flex'}
           ${fullscreenView === 'editor' ? 'w-full' : isEditorCollapsed ? 'w-full lg:w-auto' : 'lg:w-1/2'}
@@ -595,11 +595,12 @@ const App: React.FC = () => {
         </div>
         <div className={`
           ${fullscreenView === 'editor' ? 'hidden' : 'flex'}
-          ${fullscreenView === 'result' ? 'w-full' : isEditorCollapsed ? 'flex-1' : 'lg:w-1/2'}
-          flex-col min-h-[500px] lg:min-h-0 transition-all duration-300
+          ${isEditorCollapsed ? 'flex-1' : 'lg:w-1/2'}
+          ${fullscreenView === 'result' ? 'w-full' : ''}
+          flex-col min-h-[500px] lg:min-h-0 transition-all duration-300 min-w-0
         `}>
-          <div ref={tabContainerRef} className="relative border-b border-gray-300 dark:border-white/10 mb-4 overflow-hidden">
-            <div className="flex overflow-x-auto pb-2 -mb-2 hide-scrollbar">
+          <div className="relative border-b border-gray-300 dark:border-white/10 mb-4 flex-shrink-0">
+            <div ref={tabContainerRef} className="flex overflow-x-auto hide-scrollbar">
               <TabButton 
                   label={t('tabAssistant')}
                   icon={<AssistantIcon className="h-5 w-5 mr-2" />}

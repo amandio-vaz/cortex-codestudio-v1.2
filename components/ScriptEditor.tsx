@@ -302,7 +302,9 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({ script, setScript, onSave, 
   return (
     <div
       className={`bg-white/60 dark:bg-black/20 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-xl relative shadow-lg dark:shadow-2xl dark:shadow-black/20 transition-all duration-300 ${
-        isCollapsed ? 'flex flex-row items-center justify-between py-2 px-4' : 'p-4 flex flex-col h-full'
+        isCollapsed 
+          ? 'h-12 flex-row items-center justify-between py-0 px-4' 
+          : 'p-4 flex flex-col h-full'
       }`}
       style={{ backgroundColor: theme.isDark ? theme.colors.resultBg : undefined }}
     >
@@ -311,12 +313,14 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({ script, setScript, onSave, 
         onClose={() => setIsPaletteOpen(false)}
         commands={commands}
       />
-      <h2 className={`${isCollapsed ? 'text-base' : 'text-xl'} font-semibold whitespace-nowrap`} style={{ color: theme.colors.resultTitle }}>
-        {t('editorTitle')}
-      </h2>
+      
+      {/* Header Area */}
+      <div className={`flex items-center ${isCollapsed ? 'justify-between w-full' : 'justify-start'}`}>
+        <h2 className={`${isCollapsed ? 'text-base' : 'text-xl'} font-semibold whitespace-nowrap`} style={{ color: theme.colors.resultTitle }}>
+          {t('editorTitle')}
+        </h2>
 
-      {/* Buttons are simple in collapsed mode, grouped in a header in expanded mode */}
-      <div className={`${!isCollapsed ? 'absolute top-4 right-4' : ''} flex items-center space-x-1`}>
+        <div className={`${!isCollapsed ? 'absolute top-4 right-4' : ''} flex items-center space-x-1`}>
           <Tooltip text={isCollapsed ? t('tooltipExpandEditor') : t('tooltipCollapseEditor')}>
             <button
               onClick={onToggleCollapse}
@@ -337,10 +341,12 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({ script, setScript, onSave, 
               </button>
             </Tooltip>
           )}
+        </div>
       </div>
 
+      {/* Editor Body - only shown when not collapsed */}
       {!isCollapsed && (
-        <div className="mt-12 flex flex-col flex-grow min-h-0"> {/* mt-12 to make space for absolutely positioned header buttons */}
+        <div className="mt-4 flex flex-col flex-grow min-h-0">
             <div className="w-full flex-grow relative flex border border-gray-300 dark:border-white/10 rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-cyan-500/50 transition-shadow"
                 style={{ backgroundColor: theme.colors.editorBg }}>
                 {showScrollButtons && (

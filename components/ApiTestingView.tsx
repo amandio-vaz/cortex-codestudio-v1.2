@@ -4,7 +4,7 @@ import { useEditorTheme } from '../context/EditorThemeContext';
 import { ApiRequest, ApiResponse, ApiMethod, ApiHeader, ApiRequestParam } from '../types';
 import { analyzeApiResponse } from '../services/geminiService';
 
-const LOCAL_STORAGE_KEY = 'bashstudio-api-collection';
+const LOCAL_STORAGE_KEY = 'codexstudio-api-collection';
 
 // --- Helper Functions ---
 const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

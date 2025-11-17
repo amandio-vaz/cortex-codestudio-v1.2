@@ -108,6 +108,28 @@ export const improveScript = async (script: string): Promise<string> => {
     }
 };
 
+export const refactorYaml = async (yamlContent: string): Promise<string> => {
+    try {
+        const ai = getAi();
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-pro',
+            contents: `Você é um especialista em Docker Compose. Refatore o seguinte conteúdo YAML para corrigir todos os problemas de indentação e garantir que ele siga as melhores práticas de formatação. Retorne APENAS o conteúdo YAML corrigido dentro de um único bloco de código \`\`\`yaml. Não inclua nenhuma explicação.
+
+**YAML Original:**
+\`\`\`yaml
+${yamlContent}
+\`\`\`
+`
+        });
+        const fullResponse = response.text.trim();
+        const match = fullResponse.match(/```yaml([\s\S]*?)```/);
+        return match?.[1] ? match[1].trim() : fullResponse; // Return only the code
+    } catch (error) {
+        console.error("Error refactoring YAML:", error);
+        throw error;
+    }
+};
+
 export const refactorSelection = async (selection: string): Promise<{ suggestedCode: string, explanation: string }> => {
     try {
         const ai = getAi();
@@ -717,25 +739,48 @@ export const analyzeApiResponse = async (request: ApiRequest, response: AppApiRe
             contents: `Você é um engenheiro de software sênior e especialista em diagnóstico de API. Analise a seguinte requisição HTTP e sua resposta.
 
 **Sua Tarefa:**
-Forneça uma análise clara e concisa em formato Markdown. Siga esta estrutura:
-1.  **Status:** Explique o que o código de status HTTP (${response.status} ${response.statusText}) significa no contexto desta requisição específica.
-2.  **Análise do Corpo (Body):** Resuma o conteúdo do corpo da resposta. Se for um erro, explique a mensagem de erro. Se for sucesso, descreva brevemente os dados retornados.
-3.  **Cabeçalhos Notáveis (Headers):** Aponte 1 ou 2 cabeçalhos importantes na resposta (ex: \`Content-Type\`, \`Cache-Control\`, \`X-RateLimit-Remaining\`) e explique o que eles indicam.
-4.  **Sugestão (se for erro):** Se a resposta for um erro (status >= 400), forneça uma causa provável e sugira uma solução clara. Por exemplo, "O token de autorização parece estar faltando ou inválido" ou "O ID na URL pode não existir".
+Forneça uma análise clara e concisa em formato Markdown.
+
+---
+
+**SE A RESPOSTA FOR UM ERRO (Status >= 400):**
+Siga esta estrutura rigorosamente:
+1.  **Diagnóstico do Status:** Explique o que o código de status HTTP (${response.status} ${response.statusText}) significa neste contexto.
+2.  **Análise da Mensagem de Erro:** Analise o corpo (body) da resposta. Explique a mensagem de erro retornada pela API.
+3.  **Causa Provável:** Com base no status, na mensagem e na requisição enviada, identifique a causa mais provável do erro. Seja específico.
+    *   Para um erro 400 (Bad Request), sugira um problema no corpo do JSON (mal formatado, campos faltando).
+    *   Para um erro 401/403 (Unauthorized/Forbidden), foque em problemas de autenticação/autorização no cabeçalho.
+    *   Para um erro 404 (Not Found), aponte para um erro de digitação no ID ou no caminho da URL.
+    *   Para um erro 5xx (Server Error), explique que o problema é do lado do servidor e que a requisição do cliente provavelmente está correta.
+4.  **Sugestão de Solução Concreta:** Forneça uma ação clara que o usuário pode tomar para corrigir o erro. Exemplo: "Verifique se o token no cabeçalho \`Authorization\` está correto e não expirou." ou "Confira se o ID na URL existe no sistema de destino."
+
+**SE A RESPOSTA FOR SUCESSO (Status < 400):**
+Siga esta estrutura:
+1.  **Análise do Status:** Explique o significado do código de status de sucesso (${response.status} ${response.statusText}).
+2.  **Resumo do Corpo (Body):** Resuma as informações chave retornadas no corpo da resposta. Se for uma lista, mencione quantos itens foram retornados. Se for um objeto, destaque 2-3 campos importantes. Não cole o JSON inteiro.
+3.  **Cabeçalhos Notáveis:** Aponte 2-3 cabeçalhos de resposta importantes (ex: \`Content-Type\`, \`Cache-Control\`, \`ETag\`, \`X-RateLimit-Remaining\`) e explique o que eles indicam sobre a resposta ou a API.
 
 ---
 
 ### Requisição Enviada:
 - **Método:** ${request.method}
 - **URL:** ${request.url}
-- **Cabeçalhos:** \`\`\`json\n${JSON.stringify(request.headers.filter(h => h.enabled).reduce((acc, h) => ({...acc, [h.key]: h.value}), {}), null, 2)}\n\`\`\`
-- **Corpo:** \`\`\`json\n${request.body || '{}'}\n\`\`\`
+- **Cabeçalhos:** \`\`\`json
+${JSON.stringify(request.headers.filter(h => h.enabled).reduce((acc, h) => ({...acc, [h.key]: h.value}), {}), null, 2)}
+\`\`\`
+- **Corpo:** \`\`\`json
+${request.body || '{}'}
+\`\`\`
 
 ### Resposta Recebida:
 - **Status:** ${response.status} ${response.statusText}
 - **Tempo:** ${response.time}ms
-- **Cabeçalhos:** \`\`\`json\n${JSON.stringify(response.headers, null, 2)}\n\`\`\`
-- **Corpo:** \`\`\`json\n${response.body || '{}'}\n\`\`\`
+- **Cabeçalhos:** \`\`\`json
+${JSON.stringify(response.headers, null, 2)}
+\`\`\`
+- **Corpo:** \`\`\`json
+${response.body || '{}'}
+\`\`\`
 `
         });
         return apiResponse.text;

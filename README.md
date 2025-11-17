@@ -1,4 +1,3 @@
 
-      # Cortex BashStudio
+      # Codex CodeStudio
       ... todo o conteúdo do arquivo ...
-    

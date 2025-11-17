@@ -43,12 +43,12 @@ const Chatbot: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [systemInstruction, setSystemInstruction] = useState<string>(() => {
-    return localStorage.getItem('bashstudio-chat-instruction') || 'Você é um assistente prestativo e amigável, especializado em scripts Bash e ferramentas de linha de comando. Responda em Markdown bem formatado.';
+    return localStorage.getItem('codexstudio-chat-instruction') || 'Você é um assistente prestativo e amigável, especializado em scripts Bash e ferramentas de linha de comando. Responda em Markdown bem formatado.';
   });
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
       try {
-          const savedMessages = localStorage.getItem('bashstudio-chat-history');
+          const savedMessages = localStorage.getItem('codexstudio-chat-history');
           if (savedMessages) return JSON.parse(savedMessages);
       } catch (e) {
           console.error("Failed to parse chat history from localStorage", e);
@@ -57,11 +57,11 @@ const Chatbot: React.FC = () => {
   });
 
   useEffect(() => {
-    localStorage.setItem('bashstudio-chat-instruction', systemInstruction);
+    localStorage.setItem('codexstudio-chat-instruction', systemInstruction);
   }, [systemInstruction]);
 
   useEffect(() => {
-    localStorage.setItem('bashstudio-chat-history', JSON.stringify(messages));
+    localStorage.setItem('codexstudio-chat-history', JSON.stringify(messages));
   }, [messages]);
 
 

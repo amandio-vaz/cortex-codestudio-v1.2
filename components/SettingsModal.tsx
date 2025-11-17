@@ -29,6 +29,8 @@ const actionLabels: Record<CustomizableAction, string> = {
     deploymentGuidesTab: 'Deployment Guides Tab',
     refactorSelection: 'Refactor Selection Button',
     clearScript: 'Clear Button',
+    // FIX: Add missing 'refactorYaml' property to satisfy the Record<CustomizableAction, string> type.
+    refactorYaml: 'Fix Indentation Button',
 };
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {

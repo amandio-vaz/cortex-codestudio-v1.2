@@ -41,7 +41,8 @@ export type CustomizableAction =
   | 'apiTestingTab'
   | 'deploymentGuidesTab'
   | 'refactorSelection'
-  | 'clearScript';
+  | 'clearScript'
+  | 'refactorYaml';
 
 export type TemplateCategory = 'file' | 'system' | 'network' | 'utility' | 'api';
 

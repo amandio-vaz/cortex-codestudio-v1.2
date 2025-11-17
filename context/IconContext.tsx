@@ -15,7 +15,7 @@ const IconContext = createContext<IconContextType | undefined>(undefined);
 export const IconProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [iconSettings, setIconSettings] = useState<IconSettings>(() => {
     try {
-      const savedSettings = localStorage.getItem('bashstudio-icons');
+      const savedSettings = localStorage.getItem('codexstudio-icons');
       return savedSettings ? JSON.parse(savedSettings) : DEFAULT_ICONS;
     } catch (error) {
       console.error("Failed to parse icon settings from localStorage", error);
@@ -25,7 +25,7 @@ export const IconProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     try {
-      localStorage.setItem('bashstudio-icons', JSON.stringify(iconSettings));
+      localStorage.setItem('codexstudio-icons', JSON.stringify(iconSettings));
     } catch (error) {
       console.error("Failed to save icon settings to localStorage", error);
     }

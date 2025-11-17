@@ -17,23 +17,23 @@ const GeneratorView: React.FC<GeneratorViewProps> = ({ onGenerate, isLoading }) 
   const GenerateIcon = getIconComponent('generateAction');
 
   const [prompt, setPrompt] = useState<string>(() => {
-    return localStorage.getItem('bashstudio-generator-prompt') || 'Crie um script que lista todos os arquivos no diretório atual e os ordena por tamanho.';
+    return localStorage.getItem('codexstudio-generator-prompt') || 'Crie um script que lista todos os arquivos no diretório atual e os ordena por tamanho.';
   });
   
   const [systemInstruction, setSystemInstruction] = useState<string>(() => {
-    return localStorage.getItem('bashstudio-generator-instruction') || '';
+    return localStorage.getItem('codexstudio-generator-instruction') || '';
   });
 
   const [requiredCommands, setRequiredCommands] = useState<string>(() => {
-    return localStorage.getItem('bashstudio-generator-commands') || '';
+    return localStorage.getItem('codexstudio-generator-commands') || '';
   });
 
   // Debounced auto-save for generator fields
   useEffect(() => {
     const handler = setTimeout(() => {
-      localStorage.setItem('bashstudio-generator-prompt', prompt);
-      localStorage.setItem('bashstudio-generator-instruction', systemInstruction);
-      localStorage.setItem('bashstudio-generator-commands', requiredCommands);
+      localStorage.setItem('codexstudio-generator-prompt', prompt);
+      localStorage.setItem('codexstudio-generator-instruction', systemInstruction);
+      localStorage.setItem('codexstudio-generator-commands', requiredCommands);
     }, 1000);
 
     return () => {

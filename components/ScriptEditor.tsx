@@ -59,6 +59,7 @@ interface ScriptEditorProps {
   onClearScript: () => void;
   onRunInTerminal: () => void;
   onRefactorSelection: (selection: string, range: { start: number, end: number }) => void;
+  onRefactorYaml: () => void;
   githubUser: GithubUser | null;
   currentGistId: string | null;
   onUpdateGist: () => void;
@@ -111,7 +112,7 @@ const highlightYaml = (code: string): string => {
 };
 
 
-const ScriptEditor: React.FC<ScriptEditorProps> = ({ content, setContent, onSave, undo, redo, canUndo, canRedo, onAnalyze, onImprove, onValidate, onExecute, onAutoValidate, onToggleHistoryPanel, onToggleGithubPanel, isLoading, notificationMessage, issues, isFullscreen, onToggleFullscreen, isCollapsed, onToggleCollapse, onAddDocstrings, onOptimizePerformance, onCheckSecurity, onTestApi, onClearScript, onRunInTerminal, onRefactorSelection, githubUser, currentGistId, onUpdateGist, onOpenExecutionConfig, activeEditor, onSetEditor }) => {
+const ScriptEditor: React.FC<ScriptEditorProps> = ({ content, setContent, onSave, undo, redo, canUndo, canRedo, onAnalyze, onImprove, onValidate, onExecute, onAutoValidate, onToggleHistoryPanel, onToggleGithubPanel, isLoading, notificationMessage, issues, isFullscreen, onToggleFullscreen, isCollapsed, onToggleCollapse, onAddDocstrings, onOptimizePerformance, onCheckSecurity, onTestApi, onClearScript, onRunInTerminal, onRefactorSelection, onRefactorYaml, githubUser, currentGistId, onUpdateGist, onOpenExecutionConfig, activeEditor, onSetEditor }) => {
   const { t } = useLanguage();
   const { getIconComponent } = useIconContext();
   const { theme } = useEditorTheme();
@@ -310,18 +311,20 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({ content, setContent, onSave
   const CheckSecurityIcon = getIconComponent('checkSecurity');
   const TestApiIcon = getIconComponent('testApi');
   const RefactorIcon = getIconComponent('refactorSelection');
+  const RefactorYamlIcon = getIconComponent('refactorYaml');
 
   const commands = useMemo((): Command[] => [
     { id: 'analyze', name: t('buttonAnalyze'), icon: <AnalyzeIcon />, action: onAnalyze, disabled: isLoading || !content },
     { id: 'improve', name: t('buttonImprove'), icon: <ImproveIcon />, action: onImprove, disabled: isLoading || !content },
     { id: 'validate', name: t('buttonValidate'), icon: <ValidateIcon />, action: onValidate, disabled: isLoading || !content },
+    { id: 'refactorYaml', name: t('buttonRefactorYaml'), icon: <RefactorYamlIcon />, action: onRefactorYaml, disabled: isLoading || !content || activeEditor !== 'yaml' },
     { id: 'execute', name: t('buttonExecute'), icon: <ExecuteIcon />, action: () => onExecute(false), disabled: isLoading || !content || activeEditor !== 'bash' },
     { id: 'executeSudo', name: t('buttonRunWithSudo'), icon: <ShieldExclamationIcon />, action: () => onExecute(true), disabled: isLoading || !content || activeEditor !== 'bash' },
     { id: 'addDocstrings', name: t('buttonAddDocstrings'), icon: <AddDocstringsIcon />, action: onAddDocstrings, disabled: isLoading || !content || activeEditor !== 'bash' },
     { id: 'optimize', name: t('buttonOptimizePerformance'), icon: <OptimizePerformanceIcon />, action: onOptimizePerformance, disabled: isLoading || !content || activeEditor !== 'bash' },
     { id: 'security', name: t('buttonCheckSecurity'), icon: <CheckSecurityIcon />, action: onCheckSecurity, disabled: isLoading || !content || activeEditor !== 'bash' },
     { id: 'testApi', name: t('buttonTestApi'), icon: <TestApiIcon />, action: () => onTestApi(content), disabled: isLoading || !content || activeEditor !== 'bash' },
-  ], [t, content, isLoading, onAnalyze, onImprove, onValidate, onExecute, onAddDocstrings, onOptimizePerformance, onCheckSecurity, onTestApi, activeEditor]);
+  ], [t, content, isLoading, onAnalyze, onImprove, onValidate, onRefactorYaml, onExecute, onAddDocstrings, onOptimizePerformance, onCheckSecurity, onTestApi, activeEditor]);
 
   const highlightColors = {
       error: theme.colors.highlightError,
@@ -487,12 +490,13 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({ content, setContent, onSave
 
                   <hr className="border-gray-300/50 dark:border-white/10" />
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       <Tooltip text={t('tooltipAnalyze')}><button onClick={onAnalyze} disabled={isLoading || !content} className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-cyan-100 hover:bg-cyan-200 text-cyan-800 dark:text-white dark:bg-gradient-to-br dark:from-cyan-500 dark:to-blue-500 dark:hover:from-cyan-500 dark:hover:to-blue-500 focus:ring-4 focus:outline-none focus:ring-cyan-200 dark:focus:ring-cyan-800"><AnalyzeIcon className="h-5 w-5 mr-2" /> {t('buttonAnalyze')}</button></Tooltip>
                       <Tooltip text={t('tooltipImprove')}><button onClick={onImprove} disabled={isLoading || !content} className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-green-100 hover:bg-green-200 text-green-800 dark:text-white dark:bg-gradient-to-br dark:from-green-500 dark:to-teal-500 dark:hover:from-green-500 dark:hover:to-teal-500 focus:ring-4 focus:outline-none focus:ring-green-200 dark:focus:ring-green-800"><ImproveIcon className="h-5 w-5 mr-2" /> {t('buttonImprove')}</button></Tooltip>
                       <Tooltip text={t('tooltipValidate')}><button onClick={onValidate} disabled={isLoading || !content} className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-yellow-100 hover:bg-yellow-200 text-yellow-800 dark:text-white dark:bg-gradient-to-br dark:from-yellow-500 dark:to-orange-500 dark:hover:from-yellow-500 dark:hover:to-orange-500 focus:ring-4 focus:outline-none focus:ring-yellow-200 dark:focus:ring-yellow-800"><ValidateIcon className="h-5 w-5 mr-2" />{t('buttonValidate')}</button></Tooltip>
                       <Tooltip text={t('tooltipRefactorSelection')}><button onClick={() => onRefactorSelection(content.substring(selection.start, selection.end), selection)} disabled={isLoading || selection.start === selection.end || activeEditor !== 'bash'} className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-pink-100 hover:bg-pink-200 text-pink-800 dark:text-white dark:bg-gradient-to-br dark:from-pink-500 dark:to-rose-500 dark:hover:from-pink-500 dark:hover:to-rose-500 focus:ring-4 focus:outline-none focus:ring-pink-200 dark:focus:ring-pink-800"><RefactorIcon className="h-5 w-5 mr-2" /> {t('buttonRefactorSelection')}</button></Tooltip>
                       <Tooltip text={t('tooltipAddDocstrings')}><button onClick={onAddDocstrings} disabled={isLoading || !content || activeEditor !== 'bash'} className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-blue-100 hover:bg-blue-200 text-blue-800 dark:text-white dark:bg-gradient-to-br dark:from-blue-500 dark:to-sky-500 dark:hover:from-blue-500 dark:hover:to-sky-500 focus:ring-4 focus:outline-none focus:ring-blue-200 dark:focus:ring-blue-800"><AddDocstringsIcon className="h-5 w-5 mr-2" /> {t('buttonAddDocstrings')}</button></Tooltip>
+                      <Tooltip text={t('tooltipRefactorYaml')}><button onClick={onRefactorYaml} disabled={isLoading || !content || activeEditor !== 'yaml'} className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-teal-100 hover:bg-teal-200 text-teal-800 dark:text-white dark:bg-gradient-to-br dark:from-teal-500 dark:to-cyan-500 dark:hover:from-teal-600 dark:hover:to-cyan-600 focus:ring-4 focus:outline-none focus:ring-teal-200 dark:focus:ring-teal-800"><RefactorYamlIcon className="h-5 w-5 mr-2" /> {t('buttonRefactorYaml')}</button></Tooltip>
                       <Tooltip text={t('tooltipOptimizePerformance')}><button onClick={onOptimizePerformance} disabled={isLoading || !content || activeEditor !== 'bash'} className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-indigo-100 hover:bg-indigo-200 text-indigo-800 dark:text-white dark:bg-gradient-to-br dark:from-indigo-500 dark:to-violet-500 dark:hover:from-indigo-500 dark:hover:to-violet-500 focus:ring-4 focus:outline-none focus:ring-indigo-200 dark:focus:ring-indigo-800"><OptimizePerformanceIcon className="h-5 w-5 mr-2" /> {t('buttonOptimizePerformance')}</button></Tooltip>
                       <Tooltip text={t('tooltipCheckSecurity')}><button onClick={onCheckSecurity} disabled={isLoading || !content || activeEditor !== 'bash'} className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-red-100 hover:bg-red-200 text-red-800 dark:text-white dark:bg-gradient-to-br dark:from-red-500 dark:to-pink-500 dark:hover:from-red-500 dark:hover:to-pink-500 focus:ring-4 focus:outline-none focus:ring-red-200 dark:focus:ring-red-800"><CheckSecurityIcon className="h-5 w-5 mr-2" /> {t('buttonCheckSecurity')}</button></Tooltip>
                       <Tooltip text={t('tooltipTestApi')}><button onClick={() => onTestApi(selection.start !== selection.end ? content.substring(selection.start, selection.end) : content)} disabled={isLoading || !content || activeEditor !== 'bash'} className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-orange-100 hover:bg-orange-200 text-orange-800 dark:text-white dark:bg-gradient-to-br dark:from-orange-500 dark:to-amber-500 dark:hover:from-orange-500 dark:hover:to-amber-500 focus:ring-4 focus:outline-none focus:ring-orange-200 dark:focus:ring-orange-800"><TestApiIcon className="h-5 w-5 mr-2" /> {t('buttonTestApi')}</button></Tooltip>

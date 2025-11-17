@@ -14,7 +14,7 @@ const EditorThemeContext = createContext<EditorThemeContextType | undefined>(und
 export const EditorThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { appearance } = useAppearance();
   const [themeName, setThemeName] = useState<string>(() => {
-    return localStorage.getItem('bashstudio-editor-theme') || 'default';
+    return localStorage.getItem('codexstudio-editor-theme') || 'default';
   });
 
   const theme = useMemo(() => {
@@ -26,7 +26,7 @@ export const EditorThemeProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   const setTheme = (name: string) => {
     setThemeName(name);
-    localStorage.setItem('bashstudio-editor-theme', name);
+    localStorage.setItem('codexstudio-editor-theme', name);
   };
 
   useEffect(() => {

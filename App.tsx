@@ -13,30 +13,32 @@ import ApiTestingView from './components/ApiTestingView';
 import DeploymentGuidesView from './components/DeploymentGuidesView';
 import AuthModal from './components/AuthModal';
 import { ActiveView, ValidationIssue, ScriptHistoryEntry, GithubUser, Gist, RefactorSuggestion, ApiRequest, EditorType, ValidationResult } from './types';
-import { analyzeContent, improveScript, generateScript, validateScript, validateYaml, validateJson, executeScript, addDocstrings, optimizePerformance, checkSecurity, generateApiTestsFromScript, refactorSelection } from './services/geminiService';
+import { analyzeContent, improveScript, generateScript, validateScript, validateYaml, validateJson, executeScript, addDocstrings, optimizePerformance, checkSecurity, generateApiTestsFromScript, refactorSelection, refactorYaml } from './services/geminiService';
 import { getUser, getGistContent, createGist, updateGist } from './services/githubService';
 import { useLanguage } from './context/LanguageContext';
 import { useIconContext } from './context/IconContext';
 import { useUndoRedo } from './hooks/useUndoRedo';
 import { INITIAL_SCRIPT, INITIAL_YAML, INITIAL_JSON } from './constants';
+import { useAuth } from './context/AuthContext';
 
 const MAX_HISTORY_ENTRIES = 20;
 
 const App: React.FC = () => {
   const { t } = useLanguage();
   const { getIconComponent } = useIconContext();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
 
   // --- Editor State Management ---
   const [activeEditor, setActiveEditor] = useState<EditorType>('yaml');
 
-  const [bashContent, bashFns] = useUndoRedo<string>(() => localStorage.getItem('bashstudio-bash') || INITIAL_SCRIPT);
-  const [yamlContent, yamlFns] = useUndoRedo<string>(() => localStorage.getItem('bashstudio-yaml') || INITIAL_YAML);
-  const [jsonContent, jsonFns] = useUndoRedo<string>(() => localStorage.getItem('bashstudio-json') || INITIAL_JSON);
+  const [bashContent, bashFns] = useUndoRedo<string>(() => localStorage.getItem('codexstudio-bash') || INITIAL_SCRIPT);
+  const [yamlContent, yamlFns] = useUndoRedo<string>(() => localStorage.getItem('codexstudio-yaml') || INITIAL_YAML);
+  const [jsonContent, jsonFns] = useUndoRedo<string>(() => localStorage.getItem('codexstudio-json') || INITIAL_JSON);
 
   const editorStates = {
-    bash: { content: bashContent, fns: bashFns, storageKey: 'bashstudio-bash' },
-    yaml: { content: yamlContent, fns: yamlFns, storageKey: 'bashstudio-yaml' },
-    json: { content: jsonContent, fns: jsonFns, storageKey: 'bashstudio-json' },
+    bash: { content: bashContent, fns: bashFns, storageKey: 'codexstudio-bash' },
+    yaml: { content: yamlContent, fns: yamlFns, storageKey: 'codexstudio-yaml' },
+    json: { content: jsonContent, fns: jsonFns, storageKey: 'codexstudio-json' },
   };
 
   const activeContent = editorStates[activeEditor].content;
@@ -51,7 +53,6 @@ const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState<boolean>(false);
   const [isGithubPanelOpen, setIsGithubPanelOpen] = useState<boolean>(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
   const [fullscreenView, setFullscreenView] = useState<'editor' | 'result' | null>(null);
   const [scriptHistory, setScriptHistory] = useState<ScriptHistoryEntry[]>([]);
@@ -87,13 +88,13 @@ const App: React.FC = () => {
 
   useEffect(() => {
     try {
-      const savedHistory = localStorage.getItem('bashstudio-script-history');
+      const savedHistory = localStorage.getItem('codexstudio-script-history');
       if (savedHistory) setScriptHistory(JSON.parse(savedHistory));
 
-      const savedToken = localStorage.getItem('bashstudio-github-token');
+      const savedToken = localStorage.getItem('codexstudio-github-token');
       if (savedToken) handleTokenSubmit(savedToken);
       
-      const lastCheckKey = 'bashstudio-last-kb-check';
+      const lastCheckKey = 'codexstudio-last-kb-check';
       const lastCheck = localStorage.getItem(lastCheckKey);
       const thirtyDays = 30 * 24 * 60 * 60 * 1000;
       const now = Date.now();
@@ -132,12 +133,12 @@ const App: React.FC = () => {
           }
           const newEntry: ScriptHistoryEntry = { timestamp: Date.now(), content };
           const updatedHistory = [newEntry, ...prevHistory].slice(0, MAX_HISTORY_ENTRIES);
-          localStorage.setItem('bashstudio-script-history', JSON.stringify(updatedHistory));
+          localStorage.setItem('codexstudio-script-history', JSON.stringify(updatedHistory));
           return updatedHistory;
       });
     }
 
-  }, [activeEditor, editorStates]);
+  }, [activeEditor, editorStates, t]);
 
   const handleRunInTerminal = useCallback(() => {
     if (activeEditor !== 'bash') return;
@@ -210,13 +211,13 @@ const App: React.FC = () => {
       const user = await getUser(token);
       setGithubUser(user);
       setGithubToken(token);
-      localStorage.setItem('bashstudio-github-token', token);
+      localStorage.setItem('codexstudio-github-token', token);
       return true;
     } catch (error) {
       console.error("GitHub token validation failed:", error);
       setGithubUser(null);
       setGithubToken(null);
-      localStorage.removeItem('bashstudio-github-token');
+      localStorage.removeItem('codexstudio-github-token');
       return false;
     }
   };
@@ -224,7 +225,7 @@ const App: React.FC = () => {
   const handleGithubLogout = () => {
     setGithubUser(null);
     setGithubToken(null);
-    localStorage.removeItem('bashstudio-github-token');
+    localStorage.removeItem('codexstudio-github-token');
   };
 
   const handleLoadGist = async (gist: Gist) => {
@@ -554,6 +555,16 @@ const App: React.FC = () => {
         setIsLoading(false);
       });
   };
+
+  const handleRefactorYaml = () => {
+    if (activeEditor !== 'yaml') return;
+    handleApiCall(refactorYaml, activeContent, 'refactoringYamlTitle', false, (response: string) => {
+      yamlFns.set(response);
+      setNotificationMessage(t('refactoringYamlAppliedNotification'));
+      setResult(`**${t('refactoringYamlTitle')}**\n\n${t('refactoringYamlSuccessMessage')}\n\n\`\`\`yaml\n${response}\n\`\`\``);
+      setResultTitle(t('refactoringYamlTitle'));
+    });
+  }
   
   const AssistantIcon = getIconComponent('assistantTab');
   const GeneratorIcon = getIconComponent('generatorTab');
@@ -599,124 +610,136 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen text-gray-800 dark:text-white flex flex-col font-sans">
-      <Header 
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenAuthModal={() => setIsAuthModalOpen(true)}
-      />
-      <main className="flex-grow p-4 lg:p-6 flex flex-col lg:flex-row gap-6 min-w-0">
-        <div className={`
-          ${fullscreenView === 'result' ? 'hidden' : 'flex'}
-          ${fullscreenView === 'editor' ? 'w-full' : isEditorCollapsed ? 'lg:w-20' : 'lg:w-1/2'}
-           flex-col transition-all duration-300
-        `}>
-          <ScriptEditor
-            content={activeContent}
-            setContent={handleContentChange}
-            onSave={handleSaveScript}
-            undo={activeFns.undo}
-            redo={activeFns.redo}
-            canUndo={activeFns.canUndo}
-            canRedo={activeFns.canRedo}
-            onAnalyze={handleAnalyze}
-            onImprove={handleImprove}
-            onValidate={handleValidate}
-            onExecute={handleExecute}
-            onAutoValidate={handleAutoValidate}
-            onToggleHistoryPanel={() => setIsHistoryPanelOpen(true)}
-            onToggleGithubPanel={() => setIsGithubPanelOpen(true)}
-            isLoading={isLoading}
-            notificationMessage={notificationMessage}
-            issues={validationIssues}
-            isFullscreen={fullscreenView === 'editor'}
-            onToggleFullscreen={() => handleToggleFullscreen('editor')}
-            isCollapsed={isEditorCollapsed}
-            onToggleCollapse={() => setIsEditorCollapsed(prev => !prev)}
-            onAddDocstrings={handleAddDocstrings}
-            onOptimizePerformance={handleOptimizePerformance}
-            onCheckSecurity={handleCheckSecurity}
-            onTestApi={handleTestApi}
-            onClearScript={handleClearScript}
-            onRunInTerminal={handleRunInTerminal}
-            onRefactorSelection={handleRefactorSelection}
-            githubUser={githubUser}
-            currentGistId={currentGistId}
-            onUpdateGist={handleUpdateGist}
-            onOpenExecutionConfig={handleOpenExecutionConfig}
-            activeEditor={activeEditor}
-            onSetEditor={setActiveEditor}
-          />
-        </div>
-        <div className={`
-          ${fullscreenView === 'editor' ? 'hidden' : 'flex'}
-          ${isEditorCollapsed ? 'flex-1' : 'lg:w-1/2'}
-          ${fullscreenView === 'result' ? 'w-full' : ''}
-          flex-col lg:min-h-0 transition-all duration-300 min-w-0
-        `}>
-          <div className="relative border-b border-gray-300 dark:border-white/10 mb-4 flex-shrink-0">
-            <div ref={tabContainerRef} className="flex overflow-x-auto hide-scrollbar">
-              <TabButton 
-                  label={t('tabAssistant')}
-                  icon={<AssistantIcon className="h-5 w-5 mr-2" />}
-                  isActive={activeView === ActiveView.Assistant}
-                  onClick={() => setActiveView(ActiveView.Assistant)}
-                  tooltipText={t('tooltipAssistantTab')}
-                  view={ActiveView.Assistant}
-              />
-              <TabButton 
-                  label={t('tabGenerator')}
-                  icon={<GeneratorIcon className="h-5 w-5 mr-2" />}
-                  isActive={activeView === ActiveView.Generator}
-                  onClick={() => setActiveView(ActiveView.Generator)}
-                  tooltipText={t('tooltipGeneratorTab')}
-                  view={ActiveView.Generator}
-              />
+      <div className={!isAuthenticated && !isAuthLoading ? 'blur-sm pointer-events-none' : 'transition-filter duration-300'}>
+        <Header 
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
+        <main className="flex-grow p-4 lg:p-6 flex flex-col lg:flex-row gap-6 min-w-0">
+          <div className={`
+            ${fullscreenView === 'result' ? 'hidden' : 'flex'}
+            ${fullscreenView === 'editor' ? 'w-full' : isEditorCollapsed ? 'lg:w-20' : 'lg:w-1/2'}
+            flex-col transition-all duration-300
+          `}>
+            <ScriptEditor
+              content={activeContent}
+              setContent={handleContentChange}
+              onSave={handleSaveScript}
+              undo={activeFns.undo}
+              redo={activeFns.redo}
+              canUndo={activeFns.canUndo}
+              canRedo={activeFns.canRedo}
+              onAnalyze={handleAnalyze}
+              onImprove={handleImprove}
+              onValidate={handleValidate}
+              onExecute={handleExecute}
+              onAutoValidate={handleAutoValidate}
+              onToggleHistoryPanel={() => setIsHistoryPanelOpen(true)}
+              onToggleGithubPanel={() => setIsGithubPanelOpen(true)}
+              isLoading={isLoading}
+              notificationMessage={notificationMessage}
+              issues={validationIssues}
+              isFullscreen={fullscreenView === 'editor'}
+              onToggleFullscreen={() => handleToggleFullscreen('editor')}
+              isCollapsed={isEditorCollapsed}
+              onToggleCollapse={() => setIsEditorCollapsed(prev => !prev)}
+              onAddDocstrings={handleAddDocstrings}
+              onOptimizePerformance={handleOptimizePerformance}
+              onCheckSecurity={handleCheckSecurity}
+              onTestApi={handleTestApi}
+              onClearScript={handleClearScript}
+              onRunInTerminal={handleRunInTerminal}
+              onRefactorSelection={handleRefactorSelection}
+              onRefactorYaml={handleRefactorYaml}
+              githubUser={githubUser}
+              currentGistId={currentGistId}
+              onUpdateGist={handleUpdateGist}
+              onOpenExecutionConfig={handleOpenExecutionConfig}
+              activeEditor={activeEditor}
+              onSetEditor={setActiveEditor}
+            />
+          </div>
+          <div className={`
+            ${fullscreenView === 'editor' ? 'hidden' : 'flex'}
+            ${isEditorCollapsed ? 'flex-1' : 'lg:w-1/2'}
+            ${fullscreenView === 'result' ? 'w-full' : ''}
+            flex-col lg:min-h-0 transition-all duration-300 min-w-0
+          `}>
+            <div className="relative border-b border-gray-300 dark:border-white/10 mb-4 flex-shrink-0">
+              <div ref={tabContainerRef} className="flex overflow-x-auto hide-scrollbar">
                 <TabButton 
-                  label={t('tabApiTesting')}
-                  icon={<ApiTestingIcon className="h-5 w-5 mr-2" />}
-                  isActive={activeView === ActiveView.ApiTesting}
-                  onClick={() => setActiveView(ActiveView.ApiTesting)}
-                  tooltipText={t('tooltipApiTestingTab')}
-                  view={ActiveView.ApiTesting}
-              />
-              <TabButton 
-                  label={t('tabChatbot')}
-                  icon={<ChatIcon className="h-5 w-5 mr-2" />}
-                  isActive={activeView === ActiveView.Chat}
-                  onClick={() => setActiveView(ActiveView.Chat)}
-                  tooltipText={t('tooltipChatbotTab')}
-                  view={ActiveView.Chat}
-              />
-              <TabButton
-                  label={t('tabKnowledgeBase')}
-                  icon={<KnowledgeBaseIcon className="h-5 w-5 mr-2" />}
-                  isActive={activeView === ActiveView.KnowledgeBase}
-                  onClick={() => setActiveView(ActiveView.KnowledgeBase)}
-                  tooltipText={t('tooltipKnowledgeBaseTab')}
-                  view={ActiveView.KnowledgeBase}
-              />
+                    label={t('tabAssistant')}
+                    icon={<AssistantIcon className="h-5 w-5 mr-2" />}
+                    isActive={activeView === ActiveView.Assistant}
+                    onClick={() => setActiveView(ActiveView.Assistant)}
+                    tooltipText={t('tooltipAssistantTab')}
+                    view={ActiveView.Assistant}
+                />
+                <TabButton 
+                    label={t('tabGenerator')}
+                    icon={<GeneratorIcon className="h-5 w-5 mr-2" />}
+                    isActive={activeView === ActiveView.Generator}
+                    onClick={() => setActiveView(ActiveView.Generator)}
+                    tooltipText={t('tooltipGeneratorTab')}
+                    view={ActiveView.Generator}
+                />
+                  <TabButton 
+                    label={t('tabApiTesting')}
+                    icon={<ApiTestingIcon className="h-5 w-5 mr-2" />}
+                    isActive={activeView === ActiveView.ApiTesting}
+                    onClick={() => setActiveView(ActiveView.ApiTesting)}
+                    tooltipText={t('tooltipApiTestingTab')}
+                    view={ActiveView.ApiTesting}
+                />
+                <TabButton 
+                    label={t('tabChatbot')}
+                    icon={<ChatIcon className="h-5 w-5 mr-2" />}
+                    isActive={activeView === ActiveView.Chat}
+                    onClick={() => setActiveView(ActiveView.Chat)}
+                    tooltipText={t('tooltipChatbotTab')}
+                    view={ActiveView.Chat}
+                />
                 <TabButton
-                  label={t('tabDeploymentGuides')}
-                  icon={<DeploymentGuidesIcon className="h-5 w-5 mr-2" />}
-                  isActive={activeView === ActiveView.DeploymentGuides}
-                  onClick={() => setActiveView(ActiveView.DeploymentGuides)}
-                  tooltipText={t('tooltipDeploymentGuidesTab')}
-                  view={ActiveView.DeploymentGuides}
-              />
+                    label={t('tabKnowledgeBase')}
+                    icon={<KnowledgeBaseIcon className="h-5 w-5 mr-2" />}
+                    isActive={activeView === ActiveView.KnowledgeBase}
+                    onClick={() => setActiveView(ActiveView.KnowledgeBase)}
+                    tooltipText={t('tooltipKnowledgeBaseTab')}
+                    view={ActiveView.KnowledgeBase}
+                />
+                  <TabButton
+                    label={t('tabDeploymentGuides')}
+                    icon={<DeploymentGuidesIcon className="h-5 w-5 mr-2" />}
+                    isActive={activeView === ActiveView.DeploymentGuides}
+                    onClick={() => setActiveView(ActiveView.DeploymentGuides)}
+                    tooltipText={t('tooltipDeploymentGuidesTab')}
+                    view={ActiveView.DeploymentGuides}
+                />
+              </div>
+              <div 
+                className="absolute bottom-0 h-0.5 bg-gradient-to-r from-cyan-500 to-purple-600 dark:from-cyan-400 dark:to-purple-500 transition-all duration-300 ease-in-out" 
+                style={sliderStyle}
+                />
             </div>
-             <div 
-               className="absolute bottom-0 h-0.5 bg-gradient-to-r from-cyan-500 to-purple-600 dark:from-cyan-400 dark:to-purple-500 transition-all duration-300 ease-in-out" 
-               style={sliderStyle}
-              />
+            <div className="flex-grow transition-opacity duration-300 min-h-0" key={activeView}>
+              {renderActiveView()}
+            </div>
           </div>
-          <div className="flex-grow transition-opacity duration-300 min-h-0" key={activeView}>
-             {renderActiveView()}
+        </main>
+        <footer className="py-3 px-6 text-xs text-gray-500 dark:text-gray-500 flex justify-between items-center border-t border-gray-200 dark:border-white/10">
+          <span>Desenvolvido com ❤️ por Amândio Vaz - 2025</span>
+          <div className="bg-gray-100 dark:bg-slate-800/60 text-gray-600 dark:text-gray-400 px-2.5 py-1 rounded-full font-mono tracking-wider">
+            Release: v1.2
           </div>
-        </div>
-      </main>
-      <AuthModal 
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-      />
+        </footer>
+      </div>
+
+      {!isAuthLoading && !isAuthenticated && (
+        <AuthModal 
+          isOpen={true}
+          onClose={() => {}} // onClose is a no-op as the modal cannot be closed manually
+        />
+      )}
+
       <SettingsModal 
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
@@ -740,12 +763,6 @@ const App: React.FC = () => {
         currentScript={activeContent}
         currentGistId={currentGistId}
       />
-      <footer className="py-3 px-6 text-xs text-gray-500 dark:text-gray-500 flex justify-between items-center border-t border-gray-200 dark:border-white/10">
-        <span>Desenvolvido com ❤️ por Amândio Vaz - 2025</span>
-        <div className="bg-gray-100 dark:bg-slate-800/60 text-gray-600 dark:text-gray-400 px-2.5 py-1 rounded-full font-mono tracking-wider">
-          Release: v1.2
-        </div>
-      </footer>
     </div>
   );
 };

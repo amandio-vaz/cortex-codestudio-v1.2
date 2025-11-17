@@ -6,8 +6,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, otp: string) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -20,8 +19,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     try {
-      const storedUser = localStorage.getItem('bashstudio-user');
-      const storedToken = localStorage.getItem('bashstudio-token');
+      const storedUser = localStorage.getItem('codexstudio-user');
+      const storedToken = localStorage.getItem('codexstudio-token');
       if (storedUser && storedToken) {
         setUser(JSON.parse(storedUser));
         setToken(storedToken);
@@ -33,46 +32,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    // MOCK: This will be replaced with a real API call
-    console.log(`Attempting login for ${email} with password ${password}`);
+  const login = useCallback(async (email: string, otp: string): Promise<boolean> => {
+    // MOCK: This simulates OTP verification.
+    console.log(`Attempting login for ${email} with OTP ${otp}`);
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network request
 
-    const mockUser: User = { id: '1', email };
+    // For mock purposes, any 6-digit OTP is valid.
+    if (otp.length !== 6 || !/^\d+$/.test(otp)) {
+        setIsLoading(false);
+        return false;
+    }
+
+    const mockUser: User = { id: Date.now().toString(), email };
     const mockToken = `mock-token-for-${email}`;
 
     setUser(mockUser);
     setToken(mockToken);
-    localStorage.setItem('bashstudio-user', JSON.stringify(mockUser));
-    localStorage.setItem('bashstudio-token', mockToken);
+    localStorage.setItem('codexstudio-user', JSON.stringify(mockUser));
+    localStorage.setItem('codexstudio-token', mockToken);
     setIsLoading(false);
     return true;
   }, []);
-
-  const register = useCallback(async (email: string, password: string): Promise<boolean> => {
-    // MOCK: This will also be replaced with a real API call
-    console.log(`Attempting to register ${email} with password ${password}`);
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    const mockUser: User = { id: '2', email };
-    const mockToken = `mock-token-for-${email}`;
-
-    setUser(mockUser);
-    setToken(mockToken);
-    localStorage.setItem('bashstudio-user', JSON.stringify(mockUser));
-    localStorage.setItem('bashstudio-token', mockToken);
-    setIsLoading(false);
-    return true;
-  }, []);
-
 
   const logout = useCallback(() => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem('bashstudio-user');
-    localStorage.removeItem('bashstudio-token');
+    localStorage.removeItem('codexstudio-user');
+    localStorage.removeItem('codexstudio-token');
   }, []);
 
   const contextValue = useMemo(() => ({
@@ -81,9 +68,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     token,
     isLoading,
     login,
-    register,
     logout,
-  }), [user, token, isLoading, login, register, logout]);
+  }), [user, token, isLoading, login, logout]);
 
   return (
     <AuthContext.Provider value={contextValue}>

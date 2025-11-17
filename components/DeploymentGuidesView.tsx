@@ -133,50 +133,46 @@ const DeploymentGuidesView: React.FC = () => {
         return { guideMap: map };
     }, []);
     
-    // Set initial state
     useEffect(() => {
-        const firstCategory = DEPLOYMENT_GUIDES_DATA[activeCategoryKey];
-        if (firstCategory.subCategories) {
-            const firstSubKey = Object.keys(firstCategory.subCategories)[0];
-            setActiveSubCategoryKey(firstSubKey);
-            setSelectedGuideTitle(firstCategory.subCategories[firstSubKey].guides[0].title);
-        } else if (firstCategory.guides) {
+        const initialCategoryData = DEPLOYMENT_GUIDES_DATA[activeCategoryKey];
+        if (initialCategoryData?.subCategories) {
+            const initialSubKey = Object.keys(initialCategoryData.subCategories)[0];
+            setActiveSubCategoryKey(initialSubKey);
+            setSelectedGuideTitle(initialCategoryData.subCategories[initialSubKey]?.guides?.[0]?.title ?? null);
+        } else {
             setActiveSubCategoryKey(null);
-            setSelectedGuideTitle(firstCategory.guides[0].title);
+            setSelectedGuideTitle(initialCategoryData?.guides?.[0]?.title ?? null);
         }
     }, []);
 
-    // Handle category change
-    useEffect(() => {
-        const newCategoryData = DEPLOYMENT_GUIDES_DATA[activeCategoryKey];
+    const handleCategoryClick = (catKey: string) => {
+        setActiveCategoryKey(catKey);
+        const newCategoryData = DEPLOYMENT_GUIDES_DATA[catKey];
+
         if (newCategoryData.subCategories) {
             const firstSubKey = Object.keys(newCategoryData.subCategories)[0];
             setActiveSubCategoryKey(firstSubKey);
-            setSelectedGuideTitle(newCategoryData.subCategories[firstSubKey].guides[0].title);
-        } else if (newCategoryData.guides) {
+            setSelectedGuideTitle(newCategoryData.subCategories[firstSubKey]?.guides?.[0]?.title ?? null);
+        } else {
             setActiveSubCategoryKey(null);
-            setSelectedGuideTitle(newCategoryData.guides[0].title);
+            setSelectedGuideTitle(newCategoryData.guides?.[0]?.title ?? null);
         }
-    }, [activeCategoryKey]);
-
-    // Handle subcategory change
-    useEffect(() => {
-        if (!activeSubCategoryKey) return;
+    };
+    
+    const handleSubCategoryClick = (subKey: string) => {
+        setActiveSubCategoryKey(subKey);
         const categoryData = DEPLOYMENT_GUIDES_DATA[activeCategoryKey];
-        if (categoryData.subCategories && categoryData.subCategories[activeSubCategoryKey]) {
-            setSelectedGuideTitle(categoryData.subCategories[activeSubCategoryKey].guides[0].title);
-        }
-    }, [activeSubCategoryKey]);
-
+        setSelectedGuideTitle(categoryData?.subCategories?.[subKey]?.guides?.[0]?.title ?? null);
+    };
 
     const currentCategoryData = DEPLOYMENT_GUIDES_DATA[activeCategoryKey];
     const currentSubCategories = currentCategoryData.subCategories;
     
     const currentGuides = useMemo(() => {
         if (currentSubCategories && activeSubCategoryKey) {
-            return currentSubCategories[activeSubCategoryKey]?.guides || [];
+            return currentSubCategories[activeSubCategoryKey]?.guides ?? [];
         }
-        return currentCategoryData.guides || [];
+        return currentCategoryData.guides ?? [];
     }, [currentCategoryData, currentSubCategories, activeSubCategoryKey]);
 
     const selectedGuide = useMemo(() => {
@@ -198,7 +194,7 @@ const DeploymentGuidesView: React.FC = () => {
                         {Object.keys(DEPLOYMENT_GUIDES_DATA).map(catKey => (
                             <button
                                 key={catKey}
-                                onClick={() => setActiveCategoryKey(catKey)}
+                                onClick={() => handleCategoryClick(catKey)}
                                 className={`px-4 py-2 -mb-px text-sm font-medium border-b-2 transition-colors duration-200 flex-shrink-0 ${
                                     activeCategoryKey === catKey
                                         ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400'
@@ -216,7 +212,7 @@ const DeploymentGuidesView: React.FC = () => {
                             {Object.keys(currentSubCategories).map(subKey => (
                                 <button
                                     key={subKey}
-                                    onClick={() => setActiveSubCategoryKey(subKey)}
+                                    onClick={() => handleSubCategoryClick(subKey)}
                                     className={`px-3 py-1.5 text-xs font-semibold transition-colors duration-200 flex-shrink-0 border-b-2 ${
                                         activeSubCategoryKey === subKey
                                             ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400'

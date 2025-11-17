@@ -46,6 +46,8 @@ const App: React.FC = () => {
   const [scriptHistory, setScriptHistory] = useState<ScriptHistoryEntry[]>([]);
   const [refactorSuggestion, setRefactorSuggestion] = useState<RefactorSuggestion | null>(null);
   const [apiTestCollection, setApiTestCollection] = useState<ApiRequest[] | null>(null);
+  const [isEditorCollapsed, setIsEditorCollapsed] = useState(false);
+
 
   // GitHub State
   const [githubToken, setGithubToken] = useState<string | null>(null);
@@ -553,7 +555,7 @@ const App: React.FC = () => {
       <main className="flex-grow p-4 lg:p-6 flex flex-col lg:flex-row gap-6">
         <div className={`
           ${fullscreenView === 'result' ? 'hidden' : 'flex'}
-          ${fullscreenView === 'editor' ? 'w-full' : 'lg:w-1/2'}
+          ${fullscreenView === 'editor' ? 'w-full' : isEditorCollapsed ? 'lg:w-auto' : 'lg:w-1/2'}
            flex-col transition-all duration-300
         `}>
           <ScriptEditor
@@ -576,6 +578,8 @@ const App: React.FC = () => {
             issues={validationIssues}
             isFullscreen={fullscreenView === 'editor'}
             onToggleFullscreen={() => handleToggleFullscreen('editor')}
+            isCollapsed={isEditorCollapsed}
+            onToggleCollapse={() => setIsEditorCollapsed(prev => !prev)}
             onAddDocstrings={handleAddDocstrings}
             onOptimizePerformance={handleOptimizePerformance}
             onCheckSecurity={handleCheckSecurity}
@@ -591,7 +595,7 @@ const App: React.FC = () => {
         </div>
         <div className={`
           ${fullscreenView === 'editor' ? 'hidden' : 'flex'}
-          ${fullscreenView === 'result' ? 'w-full' : 'lg:w-1/2'}
+          ${fullscreenView === 'result' ? 'w-full' : isEditorCollapsed ? 'lg:flex-1' : 'lg:w-1/2'}
           flex-col min-h-[500px] lg:min-h-0 transition-all duration-300
         `}>
           <div ref={tabContainerRef} className="relative flex border-b border-gray-300 dark:border-white/10 mb-4">

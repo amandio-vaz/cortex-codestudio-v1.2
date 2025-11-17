@@ -190,7 +190,6 @@ const ApiTestingView: React.FC<{ initialCollection: ApiRequest[] | null, onColle
 const RequestTabs: React.FC<{ request: ApiRequest; onRequestChange: (field: keyof ApiRequest, value: any) => void }> = ({ request, onRequestChange }) => {
     const [activeTab, setActiveTab] = useState('params');
     const { t } = useLanguage();
-    // FIX: In the `RequestTabs` component, added the `useEditorTheme` hook to correctly access the `theme` object for styling, resolving a 'Cannot find name 'theme'' error.
     const { theme } = useEditorTheme();
 
     const tabs = ['params', 'headers', 'body'];

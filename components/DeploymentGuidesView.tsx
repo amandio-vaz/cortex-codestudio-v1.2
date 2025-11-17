@@ -1,9 +1,19 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { DEPLOYMENT_GUIDES_DATA } from '../data/deploymentGuides';
 import { DeploymentGuide, DeploymentGuideStep } from '../types';
 import Tooltip from './Tooltip';
-import { ClipboardIcon, CheckCircleIcon } from '../icons';
+import { 
+    ClipboardIcon, 
+    CheckCircleIcon,
+    ServerStackIcon,
+    ServerIcon,
+    MagnifyingGlassIcon,
+    CloudArrowUpIcon,
+    TerminalIcon,
+    FileCodeIcon,
+    ShieldExclamationIcon,
+} from '../icons';
 
 const CopyButton: React.FC<{ code: string; onCopy?: () => void; children?: React.ReactNode }> = ({ code, onCopy, children }) => {
     const { t } = useLanguage();
@@ -59,23 +69,22 @@ const GuideDetail: React.FC<{ guide: DeploymentGuide | null }> = ({ guide }) => 
     const { t } = useLanguage();
     const [isAllCopied, setIsAllCopied] = useState(false);
 
-    useEffect(() => {
-        const timer = isAllCopied ? setTimeout(() => setIsAllCopied(false), 2000) : undefined;
-        return () => clearTimeout(timer);
-    }, [isAllCopied]);
-
     const handleCopyAll = () => {
-        setIsAllCopied(true);
+        const fullScript = guide?.steps
+          .filter(step => step.isCode !== false)
+          .map(step => step.command)
+          .join(' && \\\n');
+        
+        if (fullScript) {
+            navigator.clipboard.writeText(fullScript);
+            setIsAllCopied(true);
+            setTimeout(() => setIsAllCopied(false), 2000);
+        }
     };
 
     if (!guide) {
         return <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">Selecione um guia para começar.</div>;
     }
-
-    const fullScript = guide.steps
-      .filter(step => step.isCode !== false)
-      .map(step => step.command)
-      .join(' && \\\n');
 
     const buttonText = isAllCopied ? t('buttonCopied') : 'Copiar Todos os Comandos';
 
@@ -83,12 +92,13 @@ const GuideDetail: React.FC<{ guide: DeploymentGuide | null }> = ({ guide }) => 
         <div className="p-6 h-full overflow-y-auto hide-scrollbar">
             <div className="flex justify-between items-start mb-4">
                 <h3 className="font-bold text-2xl text-gray-900 dark:text-gray-100">{guide.title}</h3>
-                <CopyButton code={fullScript} onCopy={handleCopyAll}>
-                    <div className="flex items-center gap-2 px-2">
-                        {isAllCopied ? <CheckCircleIcon className="h-5 w-5 text-green-400" /> : <ClipboardIcon className="h-5 w-5" />}
-                        <span>{buttonText}</span>
-                    </div>
-                </CopyButton>
+                <button
+                  onClick={handleCopyAll}
+                  className="bg-gray-200/80 hover:bg-gray-300/80 text-gray-700 dark:bg-slate-700/80 dark:hover:bg-slate-600/80 dark:text-gray-200 text-sm font-medium py-2 px-3 rounded-lg transition-all flex items-center gap-2"
+                >
+                  {isAllCopied ? <CheckCircleIcon className="h-5 w-5 text-green-400" /> : <ClipboardIcon className="h-5 w-5" />}
+                  <span>{buttonText}</span>
+                </button>
             </div>
             
             <div className="mb-6 p-4 bg-gray-100/50 dark:bg-slate-800/40 rounded-lg border border-gray-200 dark:border-white/10">
@@ -114,36 +124,32 @@ const GuideDetail: React.FC<{ guide: DeploymentGuide | null }> = ({ guide }) => 
 const DeploymentGuidesView: React.FC = () => {
     const { t } = useLanguage();
 
-    const [activeCategoryKey, setActiveCategoryKey] = useState(Object.keys(DEPLOYMENT_GUIDES_DATA)[0]);
-    const [activeSubCategoryKey, setActiveSubCategoryKey] = useState<string | null>(null);
-    const [selectedGuideTitle, setSelectedGuideTitle] = useState<string | null>(null);
+    const subCategoryIcons: Record<string, React.FC<{className?: string}>> = {
+        core: ServerStackIcon,
+        databases: ServerIcon,
+        observability: MagnifyingGlassIcon,
+        apps: FileCodeIcon,
+        backup_s3: CloudArrowUpIcon,
+        os: TerminalIcon,
+        security: ShieldExclamationIcon,
+    };
 
-    const { guideMap } = useMemo(() => {
-        const map = new Map<string, DeploymentGuide>();
-        Object.values(DEPLOYMENT_GUIDES_DATA).forEach(category => {
-            if (category.guides) {
-                category.guides.forEach(guide => map.set(guide.title, guide));
-            }
-            if (category.subCategories) {
-                Object.values(category.subCategories).forEach(subCat => {
-                    subCat.guides.forEach(guide => map.set(guide.title, guide));
-                });
-            }
-        });
-        return { guideMap: map };
-    }, []);
+    const [activeCategoryKey, setActiveCategoryKey] = useState(() => Object.keys(DEPLOYMENT_GUIDES_DATA)[0]);
     
-    useEffect(() => {
-        const initialCategoryData = DEPLOYMENT_GUIDES_DATA[activeCategoryKey];
+    const [activeSubCategoryKey, setActiveSubCategoryKey] = useState(() => {
+        const initialCategoryData = DEPLOYMENT_GUIDES_DATA[Object.keys(DEPLOYMENT_GUIDES_DATA)[0]];
+        return initialCategoryData?.subCategories ? Object.keys(initialCategoryData.subCategories)[0] : null;
+    });
+
+    const [selectedGuideTitle, setSelectedGuideTitle] = useState(() => {
+        const initialCategoryKey = Object.keys(DEPLOYMENT_GUIDES_DATA)[0];
+        const initialCategoryData = DEPLOYMENT_GUIDES_DATA[initialCategoryKey];
         if (initialCategoryData?.subCategories) {
             const initialSubKey = Object.keys(initialCategoryData.subCategories)[0];
-            setActiveSubCategoryKey(initialSubKey);
-            setSelectedGuideTitle(initialCategoryData.subCategories[initialSubKey]?.guides?.[0]?.title ?? null);
-        } else {
-            setActiveSubCategoryKey(null);
-            setSelectedGuideTitle(initialCategoryData?.guides?.[0]?.title ?? null);
+            return initialCategoryData.subCategories[initialSubKey]?.guides?.[0]?.title ?? null;
         }
-    }, []);
+        return initialCategoryData?.guides?.[0]?.title ?? null;
+    });
 
     const handleCategoryClick = (catKey: string) => {
         setActiveCategoryKey(catKey);
@@ -176,9 +182,9 @@ const DeploymentGuidesView: React.FC = () => {
     }, [currentCategoryData, currentSubCategories, activeSubCategoryKey]);
 
     const selectedGuide = useMemo(() => {
-        return selectedGuideTitle ? guideMap.get(selectedGuideTitle) ?? null : null;
-    }, [selectedGuideTitle, guideMap]);
-
+        const guide = currentGuides.find(g => g.title === selectedGuideTitle);
+        return guide ?? null;
+    }, [selectedGuideTitle, currentGuides]);
 
     return (
         <div className="bg-white/60 dark:bg-black/20 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-xl flex flex-col h-full shadow-lg dark:shadow-2xl dark:shadow-black/20 overflow-hidden">
@@ -195,7 +201,7 @@ const DeploymentGuidesView: React.FC = () => {
                             <button
                                 key={catKey}
                                 onClick={() => handleCategoryClick(catKey)}
-                                className={`px-4 py-2 -mb-px text-sm font-medium border-b-2 transition-colors duration-200 flex-shrink-0 ${
+                                className={`px-3 py-2 -mb-px text-xs font-medium border-b-2 transition-colors duration-200 flex-shrink-0 ${
                                     activeCategoryKey === catKey
                                         ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400'
                                         : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white'
@@ -208,20 +214,25 @@ const DeploymentGuidesView: React.FC = () => {
 
                     {/* Sub Category Tabs */}
                     {currentSubCategories && (
-                        <div className="flex border-b border-gray-200 dark:border-slate-800 overflow-x-auto hide-scrollbar flex-shrink-0 bg-gray-100/50 dark:bg-slate-800/30">
-                            {Object.keys(currentSubCategories).map(subKey => (
-                                <button
-                                    key={subKey}
-                                    onClick={() => handleSubCategoryClick(subKey)}
-                                    className={`px-3 py-1.5 text-xs font-semibold transition-colors duration-200 flex-shrink-0 border-b-2 ${
-                                        activeSubCategoryKey === subKey
-                                            ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400'
-                                            : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'
-                                    }`}
-                                >
-                                    {t(currentSubCategories[subKey].displayName)}
-                                </button>
-                            ))}
+                        <div className="flex justify-around border-b border-gray-200 dark:border-slate-800 overflow-x-auto hide-scrollbar flex-shrink-0 bg-gray-100/50 dark:bg-slate-800/30">
+                            {Object.keys(currentSubCategories).map(subKey => {
+                                const Icon = subCategoryIcons[subKey] || FileCodeIcon;
+                                const isActive = activeSubCategoryKey === subKey;
+                                return (
+                                    <Tooltip key={subKey} text={t(currentSubCategories[subKey].displayName)}>
+                                        <button
+                                            onClick={() => handleSubCategoryClick(subKey)}
+                                            className={`px-4 py-2 text-sm font-semibold transition-colors duration-200 flex-shrink-0 border-b-2 ${
+                                                isActive
+                                                    ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400'
+                                                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'
+                                            }`}
+                                        >
+                                            <Icon className="h-5 w-5" />
+                                        </button>
+                                    </Tooltip>
+                                );
+                            })}
                         </div>
                     )}
 

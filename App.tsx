@@ -62,6 +62,11 @@ const App: React.FC = () => {
     scriptRef.current = script;
   }, [script]);
 
+  // Add loaded class to body to make app visible
+  useEffect(() => {
+    document.body.classList.add('loaded');
+  }, []);
+
   // Handle notification timeouts
   useEffect(() => {
     if (notificationMessage) {

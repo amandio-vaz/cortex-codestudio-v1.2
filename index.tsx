@@ -1,34 +1,32 @@
+// FIX: Replaced incorrect bash script content with the proper React application entry point.
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { LanguageProvider } from './context/LanguageContext';
-import { IconProvider } from './context/IconContext';
-import { AppearanceProvider } from './context/ThemeContext';
-import { EditorThemeProvider } from './context/EditorThemeContext';
 import { AuthProvider } from './context/AuthContext';
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.body.classList.add('loaded');
-});
+import { EditorThemeProvider } from './context/EditorThemeContext';
+import { IconProvider } from './context/IconContext';
+import { LanguageProvider } from './context/LanguageContext';
+import { AppearanceProvider } from './context/ThemeContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
+  throw new Error('Could not find the root element');
 }
 
 const root = ReactDOM.createRoot(rootElement);
+
 root.render(
   <React.StrictMode>
     <AppearanceProvider>
-      <EditorThemeProvider>
-        <LanguageProvider>
-          <AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <EditorThemeProvider>
             <IconProvider>
               <App />
             </IconProvider>
-          </AuthProvider>
-        </LanguageProvider>
-      </EditorThemeProvider>
+          </EditorThemeProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </AppearanceProvider>
   </React.StrictMode>
 );

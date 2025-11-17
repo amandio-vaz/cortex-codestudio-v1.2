@@ -67,10 +67,21 @@ const GuideDetail: React.FC<{ guide: DeploymentGuide | null }> = ({ guide }) => 
       .join('\n');
 
     return (
-        <div className="p-6 h-full overflow-y-auto">
+        <div className="p-6 h-full overflow-y-auto hide-scrollbar">
             <div className="flex justify-between items-start mb-4">
                 <h3 className="font-bold text-2xl text-gray-900 dark:text-gray-100">{guide.title}</h3>
-                <CopyButton code={fullScript} />
+                <Tooltip text={t('tooltipCopyAll')}>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(fullScript);
+                        }}
+                        className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-700/50 dark:hover:bg-slate-600/50"
+                    >
+                        <ClipboardIcon className="h-5 w-5" />
+                        Copiar Todos os Comandos
+                    </button>
+                </Tooltip>
             </div>
             
             <div className="mb-6 p-4 bg-gray-100/50 dark:bg-slate-800/40 rounded-lg border border-gray-200 dark:border-white/10">
@@ -189,11 +200,10 @@ const DeploymentGuidesView: React.FC = () => {
                     )}
                     
                     {/* Guides List */}
-                    <div className="flex-grow overflow-y-auto p-2">
+                    <div className="flex-grow overflow-y-auto p-2 hide-scrollbar">
                         {activeGuides.map(guide => (
                            <button key={guide.title} onClick={() => setSelectedGuide(guide)} className={`w-full text-left p-3 rounded-lg transition-colors duration-200 ${selectedGuide?.title === guide.title ? 'bg-cyan-100 dark:bg-cyan-500/20' : 'hover:bg-gray-100/50 dark:hover:bg-slate-800/50'}`}>
                                 <h4 className={`font-semibold text-sm ${selectedGuide?.title === guide.title ? 'text-cyan-800 dark:text-cyan-300' : 'text-gray-800 dark:text-gray-200'}`}>{guide.title}</h4>
-                                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{guide.description}</p>
                            </button>
                         ))}
                     </div>

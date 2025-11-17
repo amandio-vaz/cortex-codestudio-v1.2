@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { DEPLOYMENT_GUIDES_DATA } from '../data/deploymentGuides';
-import { DeploymentGuide, DeploymentGuideStep } from '../types';
+import { DeploymentGuide, DeploymentGuideStep, DeploymentCategory } from '../types';
 import Tooltip from './Tooltip';
-import { ClipboardIcon, CheckCircleIcon } from '../icons';
+import { ClipboardIcon, CheckCircleIcon, ChevronDownIcon } from '../icons';
 
-// FIX: Added optional `children` prop to allow custom content and fixed state management.
 const CopyButton: React.FC<{ code: string; onCopy?: () => void; children?: React.ReactNode }> = ({ code, onCopy, children }) => {
     const { t } = useLanguage();
     const [isCopied, setIsCopied] = useState(false);
@@ -64,10 +63,8 @@ const GuideDetail: React.FC<{ guide: DeploymentGuide | null }> = ({ guide }) => 
         setIsAllCopied(false);
     }, [guide]);
 
-    // FIX: Added timeout to reset copied state for better UX.
     const handleCopyAll = () => {
         setIsAllCopied(true);
-        setTimeout(() => setIsAllCopied(false), 2000);
     };
 
     if (!guide) {
@@ -79,14 +76,16 @@ const GuideDetail: React.FC<{ guide: DeploymentGuide | null }> = ({ guide }) => 
       .map(step => step.command)
       .join(' && \\\n');
 
+    const buttonText = isAllCopied ? t('buttonCopied') : 'Copiar Todos os Comandos';
+
     return (
         <div className="p-6 h-full overflow-y-auto hide-scrollbar">
             <div className="flex justify-between items-start mb-4">
                 <h3 className="font-bold text-2xl text-gray-900 dark:text-gray-100">{guide.title}</h3>
                 <CopyButton code={fullScript} onCopy={handleCopyAll}>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 px-2">
                         {isAllCopied ? <CheckCircleIcon className="h-5 w-5 text-green-400" /> : <ClipboardIcon className="h-5 w-5" />}
-                        {isAllCopied ? t('buttonCopied') : 'Copiar Todos os Comandos'}
+                        <span>{buttonText}</span>
                     </div>
                 </CopyButton>
             </div>
@@ -111,56 +110,128 @@ const GuideDetail: React.FC<{ guide: DeploymentGuide | null }> = ({ guide }) => 
     );
 };
 
+const GuideListItem: React.FC<{ guide: DeploymentGuide, isSelected: boolean, onSelect: () => void }> = ({ guide, isSelected, onSelect }) => {
+    return (
+      <button onClick={onSelect} className={`w-full text-left p-3 rounded-md transition-colors duration-200 ${isSelected ? 'bg-cyan-100 dark:bg-cyan-500/20' : 'hover:bg-gray-200/50 dark:hover:bg-slate-800/50'}`}>
+        <h4 className={`font-medium text-sm ${isSelected ? 'text-cyan-800 dark:text-cyan-300' : 'text-gray-800 dark:text-gray-200'}`}>{guide.title}</h4>
+      </button>
+    );
+};
+
+const AccordionSection: React.FC<{
+  categoryKey: string;
+  categoryData: DeploymentCategory;
+  isOpen: boolean;
+  onToggle: () => void;
+  selectedGuideTitle: string | null;
+  onSelectGuide: (title: string) => void;
+}> = ({ categoryKey, categoryData, isOpen, onToggle, selectedGuideTitle, onSelectGuide }) => {
+    const { t } = useLanguage();
+    
+    return (
+        <div className="border-b border-gray-200 dark:border-white/10">
+            <h2>
+                <button
+                    type="button"
+                    className="flex items-center justify-between w-full p-4 font-bold text-left text-gray-800 dark:text-gray-200 hover:bg-gray-100/50 dark:hover:bg-slate-800/30"
+                    onClick={onToggle}
+                >
+                    <span>{t(categoryData.displayName)}</span>
+                    <ChevronDownIcon className={`w-5 h-5 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                </button>
+            </h2>
+            <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                <div className="overflow-hidden">
+                    <div className="p-2 space-y-1">
+                        {categoryData.subCategories ? (
+                            Object.entries(categoryData.subCategories).map(([subKey, subCatData]) => (
+                                <div key={subKey} className="ml-2 border-l border-gray-200 dark:border-gray-700/50">
+                                    <h4 className="px-3 pt-2 pb-1 text-xs font-semibold uppercase text-gray-500/80 dark:text-gray-400/80">
+                                        {t(subCatData.displayName)}
+                                    </h4>
+                                    <div className="pl-2 space-y-1">
+                                        {subCatData.guides.map(guide => (
+                                            <GuideListItem 
+                                                key={guide.title} 
+                                                guide={guide} 
+                                                isSelected={selectedGuideTitle === guide.title}
+                                                onSelect={() => onSelectGuide(guide.title)}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            categoryData.guides?.map(guide => (
+                                <GuideListItem 
+                                    key={guide.title} 
+                                    guide={guide} 
+                                    isSelected={selectedGuideTitle === guide.title}
+                                    onSelect={() => onSelectGuide(guide.title)}
+                                />
+                            ))
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const DeploymentGuidesView: React.FC = () => {
     const { t } = useLanguage();
-    const categories = Object.keys(DEPLOYMENT_GUIDES_DATA);
-    const [activeCategory, setActiveCategory] = useState(categories[0]);
-    const [activeSubCategory, setActiveSubCategory] = useState<string | null>(null);
-    const [selectedGuide, setSelectedGuide] = useState<DeploymentGuide | null>(null);
-  
-    const activeCategoryData = DEPLOYMENT_GUIDES_DATA[activeCategory];
-    const hasSubCategories = !!activeCategoryData.subCategories;
-  
-    useEffect(() => {
-      const firstSubCategory = hasSubCategories && activeCategoryData.subCategories 
-        ? Object.keys(activeCategoryData.subCategories)[0] 
-        : null;
-      setActiveSubCategory(firstSubCategory);
-      
-      let firstGuide: DeploymentGuide | null = null;
-      if (firstSubCategory && activeCategoryData.subCategories) {
-        firstGuide = activeCategoryData.subCategories[firstSubCategory].guides?.[0] || null;
-      } else {
-        firstGuide = activeCategoryData.guides?.[0] || null;
-      }
-      setSelectedGuide(firstGuide);
-    }, [activeCategory, hasSubCategories, activeCategoryData]);
+    
+    const { initialGuideTitle, initialCategoryKey, guideMap } = useMemo(() => {
+        const guideMap = new Map<string, { guide: DeploymentGuide, categoryKey: string }>();
+        let firstGuide: DeploymentGuide | null = null;
+        let firstCategoryKey: string | null = null;
 
-    useEffect(() => {
-        if (!activeSubCategory && hasSubCategories && activeCategoryData.subCategories) {
-            const firstSub = Object.keys(activeCategoryData.subCategories)[0];
-            setActiveSubCategory(firstSub);
+        for (const catKey in DEPLOYMENT_GUIDES_DATA) {
+            const category = DEPLOYMENT_GUIDES_DATA[catKey];
+            if (category.guides) {
+                category.guides.forEach(guide => {
+                    if (!firstGuide) {
+                        firstGuide = guide;
+                        firstCategoryKey = catKey;
+                    }
+                    guideMap.set(guide.title, { guide, categoryKey: catKey });
+                });
+            }
+            if (category.subCategories) {
+                for (const subKey in category.subCategories) {
+                    const subCat = category.subCategories[subKey];
+                    subCat.guides.forEach(guide => {
+                        if (!firstGuide) {
+                            firstGuide = guide;
+                            firstCategoryKey = catKey;
+                        }
+                        guideMap.set(guide.title, { guide, categoryKey: catKey });
+                    });
+                }
+            }
         }
-    }, [activeSubCategory, hasSubCategories, activeCategoryData]);
+        return { initialGuideTitle: firstGuide?.title || null, initialCategoryKey: firstCategoryKey, guideMap };
+    }, []);
 
-    useEffect(() => {
-        let currentGuides: DeploymentGuide[] = [];
-        if (hasSubCategories && activeSubCategory && activeCategoryData.subCategories) {
-            currentGuides = activeCategoryData.subCategories[activeSubCategory]?.guides || [];
-        } else if (activeCategoryData.guides) {
-            currentGuides = activeCategoryData.guides;
+    const [selectedGuideTitle, setSelectedGuideTitle] = useState<string | null>(initialGuideTitle);
+    const [openCategoryKey, setOpenCategoryKey] = useState<string | null>(initialCategoryKey);
+
+    const handleSelectGuide = (title: string) => {
+        setSelectedGuideTitle(title);
+        const guideInfo = guideMap.get(title);
+        if (guideInfo && guideInfo.categoryKey !== openCategoryKey) {
+            setOpenCategoryKey(guideInfo.categoryKey);
         }
-        setSelectedGuide(currentGuides[0] || null);
-    }, [activeCategory, activeSubCategory, activeCategoryData, hasSubCategories]);
-  
-    const activeGuides = useMemo(() => {
-      if (!activeCategoryData) return [];
-      if (hasSubCategories && activeSubCategory && activeCategoryData.subCategories) {
-        return activeCategoryData.subCategories[activeSubCategory]?.guides || [];
-      }
-      return activeCategoryData.guides || [];
-    }, [activeCategoryData, hasSubCategories, activeSubCategory]);
+    };
+    
+    const handleToggleCategory = (catKey: string) => {
+        setOpenCategoryKey(prevKey => (prevKey === catKey ? null : catKey));
+    };
+
+    const selectedGuide = useMemo(() => {
+        if (!selectedGuideTitle) return null;
+        return guideMap.get(selectedGuideTitle)?.guide || null;
+    }, [selectedGuideTitle, guideMap]);
 
     return (
         <div className="bg-white/60 dark:bg-black/20 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-xl flex flex-col h-full shadow-lg dark:shadow-2xl dark:shadow-black/20 overflow-hidden">
@@ -170,56 +241,17 @@ const DeploymentGuidesView: React.FC = () => {
             
             <div className="flex flex-grow min-h-0">
                 <div className="w-1/3 lg:w-1/4 flex flex-col border-r border-gray-300 dark:border-white/10 bg-gray-50/30 dark:bg-slate-900/20">
-                    {/* Main Categories */}
-                    <div className="flex-shrink-0 border-b border-gray-300 dark:border-white/10">
-                        <div className="overflow-x-auto hide-scrollbar">
-                            <div className="flex">
-                                {categories.map(categoryKey => (
-                                    <button
-                                        key={categoryKey}
-                                        onClick={() => setActiveCategory(categoryKey)}
-                                        className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors duration-200 flex-shrink-0 whitespace-nowrap ${
-                                            activeCategory === categoryKey
-                                                ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400'
-                                                : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white'
-                                        }`}
-                                    >
-                                        {t(DEPLOYMENT_GUIDES_DATA[categoryKey].displayName)}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Sub Categories */}
-                    {hasSubCategories && activeCategoryData.subCategories && (
-                        <div className="flex-shrink-0 border-b border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/30">
-                            <div className="overflow-x-auto hide-scrollbar">
-                                <div className="flex">
-                                    {Object.keys(activeCategoryData.subCategories).map(subKey => (
-                                        <button
-                                            key={subKey}
-                                            onClick={() => setActiveSubCategory(subKey)}
-                                            className={`px-3 py-2 text-xs font-semibold transition-colors duration-200 flex-shrink-0 whitespace-nowrap rounded-t-lg ${
-                                                activeSubCategory === subKey
-                                                ? 'text-cyan-600 dark:text-cyan-400 bg-white/60 dark:bg-black/20'
-                                                : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white'
-                                            }`}
-                                        >
-                                            {t(activeCategoryData.subCategories![subKey].displayName)}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    
-                    {/* Guides List */}
-                    <div className="flex-grow overflow-y-auto p-2 hide-scrollbar">
-                        {activeGuides.map(guide => (
-                           <button key={guide.title} onClick={() => setSelectedGuide(guide)} className={`w-full text-left p-3 rounded-lg transition-colors duration-200 ${selectedGuide?.title === guide.title ? 'bg-cyan-100 dark:bg-cyan-500/20' : 'hover:bg-gray-100/50 dark:hover:bg-slate-800/50'}`}>
-                                <h4 className={`font-semibold text-sm ${selectedGuide?.title === guide.title ? 'text-cyan-800 dark:text-cyan-300' : 'text-gray-800 dark:text-gray-200'}`}>{guide.title}</h4>
-                           </button>
+                    <div className="flex-grow overflow-y-auto hide-scrollbar">
+                         {Object.entries(DEPLOYMENT_GUIDES_DATA).map(([catKey, categoryData]) => (
+                            <AccordionSection
+                                key={catKey}
+                                categoryKey={catKey}
+                                categoryData={categoryData}
+                                isOpen={openCategoryKey === catKey}
+                                onToggle={() => handleToggleCategory(catKey)}
+                                selectedGuideTitle={selectedGuideTitle}
+                                onSelectGuide={handleSelectGuide}
+                            />
                         ))}
                     </div>
                 </div>
